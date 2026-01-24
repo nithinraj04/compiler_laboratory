@@ -139,3 +139,35 @@ node* makeWhileNode(node* cond, node* body) {
     temp->right = body;
     return temp;
 }
+
+node* makeBreakNode() {
+    node* temp = (node*) malloc(sizeof(node));
+    temp->nodetype = NODE_BREAK;
+    temp->left = NULL;
+    temp->right = NULL;
+    return temp;
+}
+
+node* makeContinueNode() {
+    node* temp = (node*) malloc(sizeof(node));
+    temp->nodetype = NODE_CONTINUE;
+    temp->left = NULL;
+    temp->right = NULL;
+    return temp;
+}
+
+node* makeBrkpNode() {
+    node* temp = (node*) malloc(sizeof(node));
+    temp->nodetype = NODE_BRKP;
+    temp->left = NULL;
+    temp->right = NULL;
+    return temp;
+}
+
+node* makeDoWhileNode(node* body, node* cond) {
+    node* temp = (node*) malloc(sizeof(node));
+    temp->nodetype = NODE_DOWHILE;
+    temp->left = cond;
+    temp->right = body;
+    return temp;
+}

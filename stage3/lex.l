@@ -20,6 +20,9 @@ digit [0-9]
 "while"  { return WHILE; }
 "do"     { return DO; }
 "endwhile" { return ENDWHILE; }
+"break"    { return BREAK; }
+"continue" { return CONTINUE; }
+"breakpoint" { return BRKP; }
 [a-z]    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "+"      { return '+'; }
 "-"      { return '-'; }

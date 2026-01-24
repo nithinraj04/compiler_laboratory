@@ -1,37 +1,20 @@
 #include "../tree/tree.h"
+#include "utils.h"
+#include "libfuncs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int getReg();
-void freeReg();
-int getLabel();
-int getAddr(node* varNode);
-int codeGen(node* root, FILE* targetFile);
-void write(int reg, FILE* targetFile);
-void read(int addr, FILE* targetFile);
-int evaluator(node* root);
-
 int regCount = 0;
 int label = 0;
 
-int getReg() {
-    if(regCount < 20) {
-        return regCount++;
-    }
-    fprintf(stderr, "Error: Out of registers\n");
-    exit(1);
-}
+labelStack* labelStackTop = NULL;
 
-void freeReg() {
-    if(regCount > 0) {
-        regCount--;
-    }
-}
+extern int binaryOpHandler(node* root, FILE* targetFile);
 
-int getLabel() {
-    return label++;
-}
+int getAddr(node* varNode);
+int codeGen(node* root, FILE* targetFile);
+int evaluator(node* root);
 
 int getAddr(node* varNode) {
     return 4096 + (varNode->varname[0] - 'a');
@@ -64,44 +47,7 @@ int codeGen(node* root, FILE* targetFile) {
         case NODE_EQ:
         case NODE_NEQ:
         {
-            int leftReg = codeGen(root->left, targetFile);
-            int rightReg = codeGen(root->right, targetFile);
-            switch(root->nodetype) {
-                case NODE_PLUS:
-                    fprintf(targetFile, "ADD R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_MINUS:
-                    fprintf(targetFile, "SUB R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_MUL:
-                    fprintf(targetFile, "MUL R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_DIV:
-                    fprintf(targetFile, "DIV R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_GT:
-                    fprintf(targetFile, "GT R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_GTE:
-                    fprintf(targetFile, "GE R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_LT:
-                    fprintf(targetFile, "LT R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_LTE:
-                    fprintf(targetFile, "LE R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_EQ:
-                    fprintf(targetFile, "EQ R%d, R%d\n", leftReg, rightReg);
-                    break;
-                case NODE_NEQ:
-                    fprintf(targetFile, "NE R%d, R%d\n", leftReg, rightReg);
-                    break;
-                default:
-                    break;
-            }
-            freeReg();
-            return leftReg;
+            return binaryOpHandler(root, targetFile);
         }
         case NODE_ASSIGN: {
             int leftAddr = getAddr(root->left);
@@ -149,14 +95,51 @@ int codeGen(node* root, FILE* targetFile) {
             return -1;
         }
         case NODE_WHILE: {
-            int beginLabel = getLabel();
-            int endLabel = getLabel();
-            fprintf(targetFile, "L%d:\n", beginLabel);
+            int condLabel = getLabel();
+            int endLabel  = getLabel();
+            labelStackTop = pushLabelStack(labelStackTop, condLabel, endLabel);
+
+            fprintf(targetFile, "L%d:\n", condLabel);
             int condReg = codeGen(root->left, targetFile);
             fprintf(targetFile, "JZ R%d, L%d\n", condReg, endLabel);
             codeGen(root->right, targetFile);
-            fprintf(targetFile, "JMP L%d\n", beginLabel);
+            fprintf(targetFile, "JMP L%d\n", condLabel);
             fprintf(targetFile, "L%d:\n", endLabel);
+            freeReg();
+
+            labelStackTop = popLabelStack(labelStackTop);
+            return -1;
+        }
+        case NODE_BREAK: {
+            labelStack* top = labelStackTop;
+            if(top == NULL) break;
+            fprintf(targetFile, "JMP L%d\n", top->end);
+            return -1;
+        }
+        case NODE_CONTINUE: {
+            labelStack* top = labelStackTop;
+            if(top == NULL) break;
+            fprintf(targetFile, "JMP L%d\n", top->cond);
+            return -1;
+        }
+        case NODE_BRKP: {
+            fprintf(targetFile, "BRKP\n");
+            return -1;
+        }
+        case NODE_DOWHILE: {
+            int stmtLabel = getLabel();
+            int condLabel = getLabel();
+            int endLabel  = getLabel();
+            labelStackTop = pushLabelStack(labelStackTop, condLabel, endLabel);
+
+            fprintf(targetFile, "L%d:\n", stmtLabel);
+            codeGen(root->right, targetFile);
+            fprintf(targetFile, "L%d:\n", condLabel);
+            int condReg = codeGen(root->left, targetFile);
+            fprintf(targetFile, "JNZ R%d, L%d\n", condReg, stmtLabel);
+            fprintf(targetFile, "L%d:\n", endLabel);
+
+            labelStackTop = popLabelStack(labelStackTop);
             freeReg();
             return -1;
         }
@@ -166,46 +149,6 @@ int codeGen(node* root, FILE* targetFile) {
     }
 }
 
-void write(int reg, FILE* targetFile){
-    int tmp = getReg();
-    fprintf(targetFile, "MOV R%d, %s\n", tmp, "\"Write\"");
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "MOV R%d, %d\n", tmp, -2);
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "PUSH R%d\n", reg);
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    freeReg();
-    fprintf(targetFile, "CALL 0\n");
-    tmp = getReg();
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    freeReg();
-}
-
-void read(int addr, FILE* targetFile){
-    int tmp = getReg();
-    fprintf(targetFile, "MOV R%d, %s\n", tmp, "\"Read\"");
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "MOV R%d, %d\n", tmp, -1);
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "MOV R%d, %d\n", tmp, addr);
-    fprintf(targetFile, "PUSH R%d\n", tmp);
-    fprintf(targetFile, "PUSH R%d\n", tmp); // 3rd arg
-    fprintf(targetFile, "PUSH R%d\n", tmp); // ret addr
-    freeReg();
-    fprintf(targetFile, "CALL 0\n");
-    tmp = getReg();
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    fprintf(targetFile, "POP R%d\n", tmp);
-    freeReg();
-}
 
 int evaluator(node* root) {
     static int reg[20] = {};

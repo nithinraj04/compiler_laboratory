@@ -19,11 +19,12 @@
     struct node* p;
 }
 
-%token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE
-%type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt
+%token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK CONTINUE BRKP
+%type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt
 
 %left '+' '-'
 %left '*' '/'
+%nonassoc '<' '>' GE LE EQ NE
 
 %%
 
@@ -38,6 +39,10 @@ stmt : inputStmt             { $$ = $1; }
      | assignStmt            { $$ = $1; }
      | ifStmt                { $$ = $1; }
      | whileStmt             { $$ = $1; }
+     | doWhileStmt           { $$ = $1; }
+     | BREAK ';'            { $$ = makeBreakNode(); }
+     | CONTINUE ';'         { $$ = makeContinueNode(); }
+     | BRKP ';'             { $$ = makeBrkpNode(); }
      ;
 inputStmt : READ '(' ID ')' ';'    { $$ = makeReadNode($3); }
           ;
@@ -50,6 +55,8 @@ ifStmt : IF '(' expr ')' THEN stmtList ELSE stmtList ENDIF  { $$ = makeIfElseNod
        ;
 whileStmt : WHILE '(' expr ')' DO stmtList ENDWHILE      { $$ = makeWhileNode($3, $6); }
           ;
+doWhileStmt : DO stmtList WHILE '(' expr ')' ';'      { $$ = makeDoWhileNode($2, $5); }
+           ;
 expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | expr '-' expr         { $$ = makeOpNode("-", $1, $3); }
      | expr '*' expr         { $$ = makeOpNode("*", $1, $3); }

@@ -18,7 +18,11 @@ typedef enum {
     NODE_NEQ,
     NODE_IFELSE,
     NODE_IF,
-    NODE_WHILE
+    NODE_WHILE,
+    NODE_BREAK,
+    NODE_CONTINUE,
+    NODE_BRKP,
+    NODE_DOWHILE
 } nodeType;
 
 typedef enum {
@@ -43,3 +47,7 @@ node* makeConnectorNode(node* left, node* right);
 node* makeIfNode(node* cond, node* ifStmt);
 node* makeIfElseNode(node* cond, node* ifStmt, node* elseStmt);
 node* makeWhileNode(node* cond, node* body);
+node* makeBreakNode();
+node* makeContinueNode();
+node* makeBrkpNode();
+node* makeDoWhileNode(node* body, node* cond);

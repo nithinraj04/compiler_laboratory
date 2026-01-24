@@ -22,4 +22,4 @@ tree.o: tree.c
 	gcc -c tree.c
 
 clean:
-	rm lex.yy.o parse.tab.o tree.o lex.yy.c parse.tab.c parse.tab.h parser
+	rm lex.yy.o parse.tab.o tree.o lex.yy.c parse.tab.c parse.tab.h

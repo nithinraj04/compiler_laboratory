@@ -1,0 +1,7 @@
+*.o
+output.xsm
+parser
+lex.yy.c
+lex.tl.c
+parse.tab.c
+parse.tab.h

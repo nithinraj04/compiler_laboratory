@@ -8,5 +8,5 @@ q = &p;
 write(*p);
 *p = 20;
 write(a);
-**q = 30;
+read(**q);
 write(a);

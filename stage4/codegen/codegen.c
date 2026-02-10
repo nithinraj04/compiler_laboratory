@@ -111,7 +111,7 @@ int codeGen(node* root, FILE* targetFile) {
                 freeReg(); // Free arrayReg
             }
             else if(root->left->nodetype == NODE_PTR) {
-                int reg = codeGen(root->right, targetFile);
+                int reg = codeGen(root->left->right, targetFile);
                 read(reg, targetFile);
                 freeReg();
             }

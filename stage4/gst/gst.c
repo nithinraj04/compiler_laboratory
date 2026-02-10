@@ -17,14 +17,17 @@ gst* createGstNode(char* name, varType type, int size) {
     return newNode;
 }
 
-gst* gstInstall(gst* head, char* name, varType type, int size) {
+gst* gstInstall(gst* head, char* name, varType type, int size, int ptr_level) {
     gst* newNode = createGstNode(name, type, size);
+    newNode->ptr_level = ptr_level;
     if (head == NULL) {
         newNode->binding = reserveSpace(size);
         return newNode;
     }
     gst* temp = head;
-    while (temp->next != NULL) {
+    gst* prev = NULL;
+    while (temp != NULL) {
+        prev = temp;
         if(strcmp(temp->name, name) == 0) {
             // Variable already exists
             free(newNode->name);
@@ -35,7 +38,7 @@ gst* gstInstall(gst* head, char* name, varType type, int size) {
         temp = temp->next;
     }
     newNode->binding = reserveSpace(size);
-    temp->next = newNode;
+    prev->next = newNode;
     return head;
 }
 
@@ -53,7 +56,7 @@ gst* gstLookup(gst* head, char* name) {
 void printGST(gst* head) {
     gst* temp = head;
     printf("Global Symbol Table:\n");
-    printf("Name\tType\tSize\tBinding\n");
+    printf("Name\tType\tSize\tBinding\tPtr_Level\n");
     while (temp != NULL) {
         const char* typeStr;
         switch (temp->type) {
@@ -62,7 +65,7 @@ void printGST(gst* head) {
             case TYPE_BOOL: typeStr = "BOOL"; break;
             default: typeStr = "UNKNOWN"; break;
         }
-        printf("%s\t%s\t%d\t%d\n", temp->name, typeStr, temp->size, temp->binding);
+        printf("%s\t%s\t%d\t%d\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->ptr_level);
         temp = temp->next;
     }
 }

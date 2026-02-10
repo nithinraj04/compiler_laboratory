@@ -11,6 +11,8 @@ typedef enum {
     NODE_NUM,
     NODE_STR,
     NODE_ID,
+    NODE_PTR,
+    NODE_ADDR_OF,
     NODE_PLUS,
     NODE_MINUS,
     NODE_MUL,
@@ -72,5 +74,7 @@ node* makeDoWhileNode(node* body, node* cond);
 node* makeDeclNode(node* type, node* varlist);
 node* makeTypeNode(varType type);
 node* makeArrayNode(node* varname, node* size);
+node* makePtrNode(node* ptrTo);
+node* makeAddressNode(node* var);
 
 #endif

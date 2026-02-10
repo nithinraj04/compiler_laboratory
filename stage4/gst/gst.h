@@ -8,11 +8,12 @@ typedef struct gst {
     varType type;     // type of the variable
     int size;         // size of the type of the variable
     int binding;      // stores the static memory address allocated to the variable
+    int ptr_level;    // 0 for normal variables, 1 for pointers, 2 for double pointers, etc.
     struct gst *next;
 } gst;
 
 gst* gstLookup(gst* head, char* name);
-gst* gstInstall(gst* head, char* name, varType type, int size);
+gst* gstInstall(gst* head, char* name, varType type, int size, int ptr_level);
 void printGST(gst* head);
 int getSP();
 int reserveSpace(int size);

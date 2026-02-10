@@ -52,15 +52,15 @@ int codeGen(node* root, FILE* targetFile) {
             return reg;
         }
         case NODE_ARRAY: {
-            printf("Generating code for array access of '%s'\n", root->varname);
-            int index = root->right->val;
-            printf("Accessing array '%s' at index %d\n", root->varname, index);
-            if(index >= root->gstEntry->size) {
-                printf("Error: Array index out of bounds for array '%s' (size is %d, index accessed is %d)\n", root->varname, root->gstEntry->size, index);
-                exit(1);
+            // I'm skipping run-time bound checks
+            if (root->right && root->right->nodetype == NODE_NUM) {
+                int index = root->right->val;
+                if (index < 0 || index >= root->gstEntry->size) {
+                    printf("Error: Array index out of bounds for array '%s' (size is %d, index accessed is %d)\n", root->varname, root->gstEntry->size, index);
+                    exit(1);
+                }
             }
-            int base_addr = getAddr(root);
-            
+
             int reg = getArrayAddr(targetFile, root);
             fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
             return reg;
@@ -87,6 +87,11 @@ int codeGen(node* root, FILE* targetFile) {
                 fprintf(targetFile, "MOV [R%d], R%d\n", arrayReg, rightReg);
                 freeReg(); // Free arrayReg
             }
+            else if(root->left->nodetype == NODE_PTR) {
+                int reg = codeGen(root->left->right, targetFile);
+                fprintf(targetFile, "MOV [R%d], R%d\n", reg, rightReg);
+                freeReg();
+            }
             else {
                 fprintf(targetFile, "MOV [%d], R%d\n", leftAddr, rightReg);
             }
@@ -100,13 +105,18 @@ int codeGen(node* root, FILE* targetFile) {
             return -1;
         }
         case NODE_READ: {
-            int leftAddr = getAddr(root->left);
             if(root->left->nodetype == NODE_ARRAY) {
                 int arrayReg = getArrayAddr(targetFile, root->left);
                 read(arrayReg, targetFile);
                 freeReg(); // Free arrayReg
             }
+            else if(root->left->nodetype == NODE_PTR) {
+                int reg = codeGen(root->right, targetFile);
+                read(reg, targetFile);
+                freeReg();
+            }
             else {
+                int leftAddr = getAddr(root->left);
                 int reg = getReg();
                 fprintf(targetFile, "MOV R%d, %d\n", reg, leftAddr);
                 read(reg, targetFile);
@@ -196,6 +206,16 @@ int codeGen(node* root, FILE* targetFile) {
         case NODE_TYPE: {
             return -1;
         }
+        case NODE_PTR: {
+            int reg = codeGen(root->right, targetFile);
+            fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
+            return reg;
+        }
+        case NODE_ADDR_OF: {
+            int reg = getReg();
+            fprintf(targetFile, "MOV R%d, %d\n", reg, root->val);
+            return reg;
+        }
         default:
             fprintf(stderr, "Error: Unknown node type %d\n", root->nodetype);
             exit(1);
@@ -280,6 +300,12 @@ void printAST(node* root, const char* prefix, int isLast) {
             break;
         case NODE_DECL:
             printf("DECL\n");
+            break;
+        case NODE_TYPE:
+            printf("TYPE(%d)\n", root->type);
+            break;
+        case NODE_PTR:
+            printf("PTR(%s)\n", root->varname ? root->varname : "unknown");
             break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);

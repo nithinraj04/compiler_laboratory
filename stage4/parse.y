@@ -13,6 +13,7 @@
     node* root;
     extern FILE* yyin;
     extern int yylineno;
+    extern gst* gstRoot;
 %}
 
 %define parse.error verbose
@@ -22,11 +23,12 @@
 }
 
 %token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK CONTINUE BRKP DECL ENDDECL INT STR STRVAL
-%type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt declarations declList decl type varList identifier
+%type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt declarations declList decl type varList identifier identifier_decl index ptr
 
 %nonassoc '<' '>' GE LE EQ NE
 %left '+' '-'
 %left '*' '/' '%'
+%right PTR
 
 %%
 
@@ -44,9 +46,18 @@ decl : type varList ';'   { $$ = makeDeclNode($1, $2); }
 type : INT   { $$ = makeTypeNode(TYPE_INT); }
      | STR   { $$ = makeTypeNode(TYPE_STR); }
      ;
-varList : varList ',' identifier   { $$ = makeConnectorNode($1, $3); }
-        | identifier               { $$ = $1; }
+varList : varList ',' identifier_decl   { $$ = makeConnectorNode($1, $3); }
+        | identifier_decl               { $$ = $1; }
         ;
+identifier_decl : ID    { $$ = $1; }
+                | ID '[' NUM ']'   { $$ = makeArrayNode($1, $3); }
+                | ptr   { $$ = $1; }
+                ;
+
+ptr : '*' ptr   { $$ = makePtrNode($2); }
+    | '*' ID    { $$ = makePtrNode($2); }
+    ;
+
 stmtList : stmtList stmt     { $$ = makeConnectorNode($1, $2); }
          | stmt              { $$ = $1; }
          ;
@@ -91,9 +102,12 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      ;
 
 identifier : ID    { $$ = $1; }
-           | ID '[' NUM ']'   { $$ = makeArrayNode($1, $3); }
-           | ID '[' ID ']'    { $$ = makeArrayNode($1, $3); }
+           | ID '[' index ']'   { $$ = makeArrayNode($1, $3); }
+           | '&' ID             { $$ = makeAddressNode($2); }
+           | ptr  %prec PTR     { $$ = $1; }
            ;
+
+index : expr    { $$ = $1; }
 
 %%
 
@@ -118,7 +132,8 @@ int main() {
     codeGen(root, targetFile);
     fprintf(targetFile, "INT 10\n");
 
-    // printAST(root, "", 1);
+    printAST(root, "", 1);
+    printGST(gstRoot);
 
     fclose(targetFile);
 

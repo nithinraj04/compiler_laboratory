@@ -10,22 +10,32 @@ void assignType(node* root, varType type) {
         return;
     }
     if(root->nodetype == NODE_ID) {
-        // printf("Assigning type %d to variable %s\n", type, root->varname);
         int size = 1;
         char* varname = root->varname;
 
-        gstRoot = gstInstall(gstRoot, varname, type, size);
+        gstRoot = gstInstall(gstRoot, varname, type, size, 0);
         root->gstEntry = gstLookup(gstRoot, varname);
         root->type = type;
+        return;
     }
     if(root->nodetype == NODE_ARRAY) {
-        // printf("Assigning type %d to array %s\n", type, root->varname);
+        // Right node is guaranteed to be NUM due to grammar
         int size = root->right->val;
         char* varname = root->varname;
 
-        gstRoot = gstInstall(gstRoot, varname, type, size);
+        gstRoot = gstInstall(gstRoot, varname, type, size, 0);
         root->gstEntry = gstLookup(gstRoot, varname);
         root->type = type;
+        return; // You don't want to assign type to the ID child.
+    }
+    if(root->nodetype == NODE_PTR) {
+        // Right node is the type being pointed to
+        assignType(root->right, type);
+        root->varname = root->right->varname; 
+        root->gstEntry = root->right->gstEntry;
+        root->gstEntry->ptr_level++;
+        root->type = type;
+        return;
     }
     assignType(root->left, type);
     assignType(root->right, type);
@@ -79,13 +89,14 @@ node* makeLeafIdNode(char* varname) {
 
 node* makeArrayNode(node* varname, node* sizeNode) {
     if(sizeNode->type != TYPE_INT) {
-        printf("Error: Array size must be an integer\n");
+        printf("Error: Array index must be an integer\n");
         exit(1);
     }
 
     node* temp = createTreeNode();
     temp->varname = strdup(varname->varname);
     temp->nodetype = NODE_ARRAY;
+    // GST entry would have been created when processing DECL node
     temp->gstEntry = gstLookup(gstRoot, varname->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
@@ -281,3 +292,31 @@ node* makeTypeNode(varType type) {
     return temp;
 }
 
+node* makePtrNode(node* ptrTo) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_PTR;
+    temp->type = ptrTo->type;
+    if(ptrTo->gstEntry) {
+        temp->gstEntry = ptrTo->gstEntry;
+        temp->varname = ptrTo->varname;
+        // Level of PTR would have already been updated in decl section
+        // Level of all the child PTR nodes are irrelevant here.
+    }
+    temp->left = NULL;
+    temp->right = ptrTo;
+    return temp;
+}
+
+node* makeAddressNode(node* var) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_ADDR_OF;
+    temp->type = var->type;
+    if(var->gstEntry) {
+        temp->gstEntry = var->gstEntry;
+        temp->varname = var->varname;
+        temp->val = temp->gstEntry->binding;
+    }
+    temp->left = NULL;
+    temp->right = var;
+    return temp;
+}

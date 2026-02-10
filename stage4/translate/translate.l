@@ -76,6 +76,6 @@ int tlwrap() {
 
 void translateLabels(FILE* inputFile) {
     tlin = fopen("output.xsm", "r");
-    printf("Translating Labels...\n");
+    // printf("Translating Labels...\n");
     while(tllex() != 0);
 }

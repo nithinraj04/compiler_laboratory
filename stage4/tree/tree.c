@@ -25,6 +25,7 @@ void assignType(node* root, varType type) {
 
         gstRoot = gstInstall(gstRoot, varname, type, size, 0);
         root->gstEntry = gstLookup(gstRoot, varname);
+        root->left->gstEntry = root->gstEntry; 
         root->type = type;
         return; // You don't want to assign type to the ID child.
     }

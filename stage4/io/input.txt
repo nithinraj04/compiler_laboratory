@@ -1,5 +1,5 @@
 decl 
-int a, *p, **q, ***r;
+int a, *p, **q, r[10];
 enddecl
 
 a = 10;
@@ -8,5 +8,6 @@ q = &p;
 write(*p);
 *p = 20;
 write(a);
-read(**q);
-write(a);
+p = &r;
+*p = 100;
+write(r[0]);

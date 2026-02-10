@@ -52,15 +52,6 @@ int codeGen(node* root, FILE* targetFile) {
             return reg;
         }
         case NODE_ARRAY: {
-            // I'm skipping run-time bound checks
-            if (root->right && root->right->nodetype == NODE_NUM) {
-                int index = root->right->val;
-                if (index < 0 || index >= root->gstEntry->size) {
-                    printf("Error: Array index out of bounds for array '%s' (size is %d, index accessed is %d)\n", root->varname, root->gstEntry->size, index);
-                    exit(1);
-                }
-            }
-
             int reg = getArrayAddr(targetFile, root);
             fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
             return reg;
@@ -306,6 +297,9 @@ void printAST(node* root, const char* prefix, int isLast) {
             break;
         case NODE_PTR:
             printf("PTR(%s)\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_ADDR_OF:
+            printf("ADDR_OF(%s)\n", root->varname ? root->varname : "unknown");
             break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);

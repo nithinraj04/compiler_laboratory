@@ -2,9 +2,12 @@ DIRS = codegen tree translate
 
 all: parser
 
-parser: lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o
-	gcc -g -o parser lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o
+parser: lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o semantics.o
+	gcc -g -o parser lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o semantics.o
 	make clean
+
+semantics.o: semantics/semantics.c
+	gcc -g -c semantics/semantics.c
 
 gst.o: gst/gst.c
 	gcc -g -c gst/gst.c

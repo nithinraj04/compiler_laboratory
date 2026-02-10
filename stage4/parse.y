@@ -10,6 +10,7 @@
     int codeGen(node* root, FILE* targetFile);
     void print(int reg, FILE* targetFile);
     void printAST(node* root, const char* prefix, int isLast);
+    void semantics(node* root);
     node* root;
     extern FILE* yyin;
     extern int yylineno;
@@ -119,6 +120,7 @@ int main() {
     yyin = fopen("io/input.txt", "r");
 
     yyparse();
+    semantics(root);
 
     FILE* targetFile = fopen("output.xsm", "w");
     if (targetFile == NULL) {

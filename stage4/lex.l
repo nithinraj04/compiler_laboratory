@@ -33,6 +33,7 @@ digit [0-9]
 "enddecl"  { return ENDDECL; }
 "int"    { return INT; }
 "str"    { return STR; }
+"NULL"   { return NULLVAL; }
 [a-zA-Z][a-zA-Z0-9]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "+"      { return '+'; }
 "-"      { return '-'; }

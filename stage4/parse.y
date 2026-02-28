@@ -23,7 +23,7 @@
     struct node* p;
 }
 
-%token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK CONTINUE BRKP DECL ENDDECL INT STR STRVAL
+%token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK CONTINUE BRKP DECL ENDDECL INT STR STRVAL NULLVAL
 %type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt declarations declList decl type varList identifier identifier_decl index ptr
 
 %nonassoc '<' '>' GE LE EQ NE
@@ -100,6 +100,7 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | NUM                   { $$ = $1; }
      | STRVAL                { $$ = $1; }
      | identifier            { $$ = $1; }
+     | NULLVAL               { $$ = makeNullNode(); }
      ;
 
 identifier : ID    { $$ = $1; }

@@ -115,42 +115,21 @@ node* makeOpNode(char* op, node* left, node* right) {
         return NULL;
     }
 
-    if(left->type != right->type) {
-        printf("Error: Type mismatch in operands in makeOpNode: %d and %d for variable %s\n", left->type, right->type, left->varname ? left->varname : "unknown");
-        exit(1);
-    }
-
     node* temp = (node*) malloc(sizeof(node));
 
     if(strcmp(op, "=") == 0) {
         temp->nodetype = NODE_ASSIGN;
         temp->type = right->type;
-        temp->left = left;
-        temp->right = right;
-        return temp;
     }
     else if(strcmp(op, "==") == 0) {
         temp->nodetype = NODE_EQ;
         temp->type = TYPE_BOOL;
-        temp->left = left;
-        temp->right = right;
-        return temp;
     }
     else if(strcmp(op, "!=") == 0) {
         temp->nodetype = NODE_NEQ;
         temp->type = TYPE_BOOL;
-        temp->left = left;
-        temp->right = right;
-        return temp;
     }
-
-    if(left->type != TYPE_INT || right->type != TYPE_INT) {
-        printf("Error: Non-integer operand in makeOpNode\n");
-        exit(1);
-    }
-
-    
-    if(strcmp(op, "+") == 0) {
+    else if(strcmp(op, "+") == 0) {
         temp->nodetype = NODE_PLUS;
         temp->type = TYPE_INT;
     }
@@ -319,5 +298,12 @@ node* makeAddressNode(node* var) {
     }
     temp->left = NULL;
     temp->right = var;
+    return temp;
+}
+
+node* makeNullNode() {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_NULL;
+    temp->type = -1;
     return temp;
 }

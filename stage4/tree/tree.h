@@ -13,6 +13,7 @@ typedef enum {
     NODE_ID,
     NODE_PTR,
     NODE_ADDR_OF,
+    NODE_NULL,
     NODE_PLUS,
     NODE_MINUS,
     NODE_MUL,
@@ -57,6 +58,8 @@ typedef struct node{
     struct node *left,*right;  // left and right branches
 } node;
 
+int getDerefLevel(node* root);
+
 node* makeLeafNumNode(int n);
 node* makeLeafStrNode(char* str);
 node* makeLeafIdNode(char* varname);
@@ -76,5 +79,6 @@ node* makeTypeNode(varType type);
 node* makeArrayNode(node* varname, node* size);
 node* makePtrNode(node* ptrTo);
 node* makeAddressNode(node* var);
+node* makeNullNode();
 
 #endif

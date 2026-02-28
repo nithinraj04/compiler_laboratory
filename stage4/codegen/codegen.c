@@ -301,6 +301,9 @@ void printAST(node* root, const char* prefix, int isLast) {
         case NODE_ADDR_OF:
             printf("ADDR_OF(%s)\n", root->varname ? root->varname : "unknown");
             break;
+        case NODE_ARRAY:
+            printf("ARRAY(%s)\n", root->varname ? root->varname : "unknown");
+            break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);
     }

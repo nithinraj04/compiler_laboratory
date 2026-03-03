@@ -35,7 +35,13 @@ typedef enum {
     NODE_DOWHILE,
     NODE_TYPE,
     NODE_DECL,
-    NODE_ARRAY
+    NODE_ARRAY,
+    NODE_FNDECL,
+    NODE_FNDEF,
+    NODE_FNCALL,
+    NODE_PARAM,
+    NODE_RETURN,
+    NODE_MAIN
 } nodeType;
 
 enum varType {
@@ -80,5 +86,11 @@ node* makeArrayNode(node* varname, node* size);
 node* makePtrNode(node* ptrTo);
 node* makeAddressNode(node* var);
 node* makeNullNode();
+node* makeFnDeclNode(node* name, node* paramList);
+node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, node* body);
+node* makeParamNode(node* type, node* var);
+node* makeReturnNode(node* retVal);
+node* makeFnCallNode(node* fnName, node* argList);
+node* makeMainNode(node* lDeclBlock, node* body);
 
 #endif

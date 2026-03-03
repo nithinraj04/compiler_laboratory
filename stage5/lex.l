@@ -55,6 +55,8 @@ digit [0-9]
 ")"      { return ')'; }
 "["      { return '['; }
 "]"      { return ']'; }
+"{"      { return '{'; }
+"}"      { return '}'; }
 ","      { return ','; }
 [ \t\n]  { /* ignore whitespace */ }
 .        { yyerror("Invalid character\n"); }

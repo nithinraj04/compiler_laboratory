@@ -1,15 +1,17 @@
 decl 
-int a, *p, **q, r[10];
+int hello();
 enddecl
 
-a = 10;
-p = &a;
-q = &p;
-write(*p);
-*p = 20;
-write(a);
-p = &r + 1;
-*p = 100;
-write(r[0]);
-write(r[1]);
-write(r[*p - 99]);
+int hello() {
+begin
+    write("Hello");
+    return 0;
+end
+}
+
+int main() {
+begin
+    hello();
+    return 0;
+end 
+}

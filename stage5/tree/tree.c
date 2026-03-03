@@ -38,6 +38,14 @@ void assignType(node* root, varType type) {
         root->type = type;
         return;
     }
+    if(root->nodetype == NODE_FNDECL) {
+        // Left node is the return type
+        assignType(root->left, type);
+        root->varname = root->left->varname; 
+        root->gstEntry = root->left->gstEntry;
+        root->type = type;
+        return;
+    }
     assignType(root->left, type);
     assignType(root->right, type);
 }
@@ -290,6 +298,7 @@ node* makePtrNode(node* ptrTo) {
 node* makeAddressNode(node* var) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_ADDR_OF;
+    temp->varname = strdup(var->varname);
     temp->type = var->type;
     if(var->gstEntry) {
         temp->gstEntry = var->gstEntry;
@@ -305,5 +314,70 @@ node* makeNullNode() {
     node* temp = createTreeNode();
     temp->nodetype = NODE_NULL;
     temp->type = -1;
+    return temp;
+}
+
+node* makeFnDeclNode(node* name, node* paramList) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FNDECL;
+    temp->varname = strdup(name->varname);
+    temp->left = name;
+    temp->right = paramList;
+    return temp;
+}
+
+node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, node* body) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FNDEF;
+    temp->varname = strdup(name->varname);
+    temp->type = type->type;
+    temp->left = paramList;
+    temp->right = makeConnectorNode(lDeclBlock, body);
+    // free(type);
+    // free(name);
+    return temp;
+}
+
+node* makeParamNode(node* type, node* var) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_PARAM;
+    temp->varname = strdup(var->varname);
+    temp->type = type->type;
+    temp->gstEntry = gstLookup(gstRoot, var->varname);
+    temp->left = NULL;
+    temp->right = var;
+    // free(type);
+    return temp;
+}
+
+node* makeReturnNode(node* retVal) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_RETURN;
+    temp->type = retVal->type;
+    temp->left = retVal;
+    temp->right = NULL;
+    return temp;
+}
+
+node* makeFnCallNode(node* fnName, node* argList) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FNCALL;
+    temp->varname = strdup(fnName->varname);
+    temp->gstEntry = gstLookup(gstRoot, fnName->varname);
+    if(temp->gstEntry) {
+        temp->type = temp->gstEntry->type;
+    } else {
+        temp->type = -1;
+    }
+    temp->left = fnName;
+    temp->right = argList;
+    return temp;
+}
+
+node* makeMainNode(node* lDeclBlock, node* body) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_MAIN;
+    temp->left = lDeclBlock;
+    temp->right = body;
     return temp;
 }

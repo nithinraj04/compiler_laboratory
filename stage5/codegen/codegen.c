@@ -304,6 +304,27 @@ void printAST(node* root, const char* prefix, int isLast) {
         case NODE_ARRAY:
             printf("ARRAY(%s)\n", root->varname ? root->varname : "unknown");
             break;
+        case NODE_FNDECL:
+            printf("FNDECL - %s()\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_FNDEF:
+            printf("FNDEF - %s()\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_FNCALL:
+            printf("FNCALL - %s()\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_PARAM:
+            printf("PARAM(%s)\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_RETURN:
+            printf("RETURN\n");
+            break;
+        case NODE_STR:
+            printf("STR(%s)\n", root->strval);
+            break;
+        case NODE_MAIN:
+            printf("MAIN\n");
+            break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);
     }

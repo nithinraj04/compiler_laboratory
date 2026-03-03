@@ -41,7 +41,8 @@ typedef enum {
     NODE_FNCALL,
     NODE_PARAM,
     NODE_RETURN,
-    NODE_MAIN
+    NODE_MAIN,
+    NODE_LDECL
 } nodeType;
 
 enum varType {
@@ -52,7 +53,7 @@ enum varType {
 
 typedef enum varType varType; // Forward declaration of varType for gst.h
 
-#include "../gst/gst.h"
+#include "../symbol_table/gst.h"
 
 typedef struct node{
     int val;        // value of a number for NUM nodes.
@@ -92,5 +93,6 @@ node* makeParamNode(node* type, node* var);
 node* makeReturnNode(node* retVal);
 node* makeFnCallNode(node* fnName, node* argList);
 node* makeMainNode(node* lDeclBlock, node* body);
+node* makeLDeclNode(node* type, node* varlist);
 
 #endif

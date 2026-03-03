@@ -1,6 +1,6 @@
 #include "utils.h"
 #include "../tree/tree.h"
-#include "../gst/gst.h"
+#include "../symbol_table/gst.h"
 #include <stdio.h>
 #include <stdlib.h>
 

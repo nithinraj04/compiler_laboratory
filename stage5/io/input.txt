@@ -1,8 +1,12 @@
 decl 
 int hello();
+int z;
 enddecl
 
 int hello() {
+decl
+int z;
+enddecl
 begin
     write("Hello");
     return 0;
@@ -11,6 +15,7 @@ end
 
 int main() {
 begin
+    z = 10;
     hello();
     return 0;
 end 

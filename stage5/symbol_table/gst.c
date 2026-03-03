@@ -53,10 +53,33 @@ gst* gstLookup(gst* head, char* name) {
     return NULL;
 }
 
+void appendParam(gst* gstEntry, char* name, varType type, int ptr_level) {
+    paramStruct* newParam = (paramStruct*) malloc(sizeof(paramStruct));
+    newParam->name = strdup(name);
+    newParam->type = type;
+    newParam->ptr_level = ptr_level;
+    newParam->next = NULL;
+
+    if(gstEntry->paramList == NULL) {
+        gstEntry->paramList = newParam;
+        return;
+    }
+    paramStruct* temp = gstEntry->paramList;
+    while(temp->next != NULL) {
+        temp = temp->next;
+        if(strcmp(temp->name, name) == 0) {
+            // Parameter already exists
+            printf("Error: Redeclaration of parameter '%s' in function '%s'.\n", name, gstEntry->name);
+            exit(1);
+        }
+    }
+    temp->next = newParam;
+}
+
 void printGST(gst* head) {
     gst* temp = head;
     printf("Global Symbol Table:\n");
-    printf("Name\tType\tSize\tBinding\tPtr_Level\n");
+    printf("Name\tType\tSize\tBinding\tRBinding\tPtr_Level\n");
     while (temp != NULL) {
         const char* typeStr;
         switch (temp->type) {
@@ -65,7 +88,23 @@ void printGST(gst* head) {
             case TYPE_BOOL: typeStr = "BOOL"; break;
             default: typeStr = "UNKNOWN"; break;
         }
-        printf("%s\t%s\t%d\t%d\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->ptr_level);
+        printf("%s\t%s\t%d\t%d\t%d\t\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->relativeBinding, temp->ptr_level);
+        if(temp->paramList) {
+            printf("\tParameters:\n");
+            printf("\tName\tType\tPtr_Level\n");
+            paramStruct* paramTemp = temp->paramList;
+            while (paramTemp != NULL) {
+                const char* paramTypeStr;
+                switch (paramTemp->type) {
+                    case TYPE_INT: paramTypeStr = "INT"; break;
+                    case TYPE_STR: paramTypeStr = "STR"; break;
+                    case TYPE_BOOL: paramTypeStr = "BOOL"; break;
+                    default: paramTypeStr = "UNKNOWN"; break;
+                }
+                printf("\t%s\t%s\t%d\n", paramTemp->name, paramTypeStr, paramTemp->ptr_level);
+                paramTemp = paramTemp->next;
+            }
+        }
         temp = temp->next;
     }
 }

@@ -4,6 +4,19 @@
 #include "tree.h"
 
 extern struct gst* gstRoot;
+extern struct gst* lstRoot;
+
+void enterParamsList(node* root, gst* gstEntry) {
+    if(root == NULL) return;
+
+    if(root->nodetype == NODE_PARAM) {
+        int ptr_level = -1*getDerefLevel(root->right);  // oppikal
+        appendParam(gstEntry, root->varname, root->type, ptr_level);
+        return;
+    }
+    enterParamsList(root->left, gstEntry);
+    enterParamsList(root->right, gstEntry);
+}
 
 void assignType(node* root, varType type) {
     if(root == NULL) {
@@ -14,7 +27,7 @@ void assignType(node* root, varType type) {
         char* varname = root->varname;
 
         gstRoot = gstInstall(gstRoot, varname, type, size, 0);
-        root->gstEntry = gstLookup(gstRoot, varname);
+        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
         root->type = type;
         return;
     }
@@ -24,7 +37,7 @@ void assignType(node* root, varType type) {
         char* varname = root->varname;
 
         gstRoot = gstInstall(gstRoot, varname, type, size, 0);
-        root->gstEntry = gstLookup(gstRoot, varname);
+        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
         root->left->gstEntry = root->gstEntry; 
         root->type = type;
         return; // You don't want to assign type to the ID child.
@@ -44,6 +57,7 @@ void assignType(node* root, varType type) {
         root->varname = root->left->varname; 
         root->gstEntry = root->left->gstEntry;
         root->type = type;
+        enterParamsList(root->right, root->gstEntry);
         return;
     }
     assignType(root->left, type);
@@ -85,7 +99,7 @@ node* makeLeafIdNode(char* varname) {
     node* temp = createTreeNode();
     temp->varname = strdup(varname);
     temp->nodetype = NODE_ID;
-    temp->gstEntry = gstLookup(gstRoot, varname);
+    temp->gstEntry = globalLookup(gstRoot, lstRoot, varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
     } else {
@@ -106,7 +120,7 @@ node* makeArrayNode(node* varname, node* sizeNode) {
     temp->varname = strdup(varname->varname);
     temp->nodetype = NODE_ARRAY;
     // GST entry would have been created when processing DECL node
-    temp->gstEntry = gstLookup(gstRoot, varname->varname);
+    temp->gstEntry = globalLookup(gstRoot, lstRoot, varname->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
     } else {
@@ -283,6 +297,7 @@ node* makeTypeNode(varType type) {
 node* makePtrNode(node* ptrTo) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_PTR;
+    temp->varname = strdup(ptrTo->varname);
     temp->type = ptrTo->type;
     if(ptrTo->gstEntry) {
         temp->gstEntry = ptrTo->gstEntry;
@@ -330,6 +345,7 @@ node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, n
     node* temp = createTreeNode();
     temp->nodetype = NODE_FNDEF;
     temp->varname = strdup(name->varname);
+    temp->gstEntry = gstLookup(gstRoot, name->varname);
     temp->type = type->type;
     temp->left = paramList;
     temp->right = makeConnectorNode(lDeclBlock, body);
@@ -343,7 +359,6 @@ node* makeParamNode(node* type, node* var) {
     temp->nodetype = NODE_PARAM;
     temp->varname = strdup(var->varname);
     temp->type = type->type;
-    temp->gstEntry = gstLookup(gstRoot, var->varname);
     temp->left = NULL;
     temp->right = var;
     // free(type);
@@ -363,7 +378,7 @@ node* makeFnCallNode(node* fnName, node* argList) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_FNCALL;
     temp->varname = strdup(fnName->varname);
-    temp->gstEntry = gstLookup(gstRoot, fnName->varname);
+    temp->gstEntry = globalLookup(gstRoot, lstRoot, fnName->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
     } else {
@@ -379,5 +394,13 @@ node* makeMainNode(node* lDeclBlock, node* body) {
     temp->nodetype = NODE_MAIN;
     temp->left = lDeclBlock;
     temp->right = body;
+    return temp;
+}
+
+node* makeLDeclNode(node* type, node* varlist) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_LDECL;
+    temp->left = type;
+    temp->right = varlist;
     return temp;
 }

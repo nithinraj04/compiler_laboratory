@@ -1,6 +1,6 @@
 %{
     #include "tree/tree.h"
-    #include "gst/gst.h"
+    #include "symbol_table/gst.h"
     #include <stdio.h>
     #include <stdlib.h>
     #include "translate/translate.h"
@@ -37,7 +37,7 @@
 
 %%
 
-start : gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode($1, makeConnectorNode($2, $3)); }
+start : gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode($1, makeConnectorNode($2, $3)); printGST(gstRoot); }
       | gDeclBlock mainBlock             { root = makeConnectorNode($1, $2); }
       | mainBlock                        { root = $1; }
       ;
@@ -90,7 +90,7 @@ lDeclList : lDeclList lDecl    { $$ = makeConnectorNode($1, $2); }
           | lDecl              { $$ = $1; }
           ;
 
-lDecl : type lVarList ';'   { $$ = makeDeclNode($1, $2); }
+lDecl : type lVarList ';'   { $$ = makeLDeclNode($1, $2); }
       ;
 
 lVarList : lVarList ',' lVar   { $$ = makeConnectorNode($1, $3); }

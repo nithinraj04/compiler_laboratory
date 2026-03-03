@@ -1,9 +1,92 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../tree/tree.h"
-#include "../gst/gst.h"
+#include "../symbol_table/gst.h"
 
 extern struct gst* gstRoot;
+extern struct gst* lstRoot;
+
+void matchParamsList(struct paramStruct** paramList, node* argList) {
+    if(paramList == NULL && argList == NULL) {
+        return;
+    }
+
+    if(argList == NULL) return;
+    
+    if(argList->nodetype == NODE_CONNECTOR) {
+        matchParamsList(paramList, argList->left);
+        matchParamsList(paramList, argList->right);
+        return;
+    }
+
+    if(*paramList == NULL) {
+        printf("Semantics Error: Too many arguments in function definition/call\n");
+        exit(1);
+    }
+
+    if(argList->nodetype == NODE_PARAM) {
+        if((*paramList)->type != argList->type) {
+            printf("Semantics Error: Fn def - Parameter typ mismatch for parameter '%s'\n", (*paramList)->name);
+            exit(1);
+        }
+        if(strcmp((*paramList)->name, argList->right->varname) != 0) {
+            printf("Semantics Error: Fn def - Parameter name mismatch for parameter '%s'\n", (*paramList)->name);
+            exit(1);
+        }
+        *paramList = (*paramList)->next;
+        return;
+    }
+
+    if((*paramList)->type != argList->type) {
+        printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
+        exit(1);
+    }
+    if((*paramList)->ptr_level != getDerefLevel(argList)) {
+        printf("Semantics Error: Fn call - Dereference level mismatch for parameter '%s'\n", (*paramList)->name);
+        exit(1);
+    }
+    *paramList = (*paramList)->next;
+    return;
+}
+
+void assignTypesLocal(node* root, varType type, gst** lst, struct paramStruct* paramList) {
+    if(root == NULL) {
+        return;
+    }
+
+    if(root->nodetype == NODE_ID) {
+        char* varname = root->varname;
+        int ptr_level = -1*getDerefLevel(root);  // oppikal
+        *lst = lstInstall(*lst, varname, type, ptr_level);
+        root->type = type;
+        return;
+    }
+
+    if(root->nodetype == NODE_PTR) {
+        char* varname = root->varname;
+        int ptr_level = -1*getDerefLevel(root);  // oppikal
+        *lst = lstInstall(*lst, varname, type, ptr_level);
+        root->type = type;
+        return;
+    }
+
+    assignTypesLocal(root->left, type, lst, paramList);
+    assignTypesLocal(root->right, type, lst, paramList);
+}
+
+void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
+    if(!root) return;
+
+    if(root->nodetype == NODE_LDECL) {
+        varType type = root->left->type;
+        assignTypesLocal(root->right, type, lst, paramList);
+        return;
+    }
+
+    buildLST(root->left, lst, paramList);
+    buildLST(root->right, lst, paramList);
+}
 
 int getDerefLevel(node* root) {
     if(root == NULL) {
@@ -16,7 +99,8 @@ int getDerefLevel(node* root) {
         return getDerefLevel(root->right) + 1;
     }
     if(root->nodetype == NODE_ID || root->nodetype == NODE_ARRAY) {
-        return root->gstEntry ? root->gstEntry->ptr_level : 0;
+        gst*  entry = globalLookup(gstRoot, lstRoot, root->varname);
+        return entry ? entry->ptr_level : 0;
     }
     int left = getDerefLevel(root->left);
     int right = getDerefLevel(root->right);
@@ -37,7 +121,7 @@ void semantics(node* root) {
             semantics(root->left);
 
             if(getDerefLevel(root->left) != 0) {
-                printf("Error: Cannot read/write pointer variable '%s' without dereferencing\n", root->left->varname);
+                printf("Semantics Error: Cannot read/write pointer variable '%s' without dereferencing\n", root->left->varname);
                 exit(1);
             }
             
@@ -54,14 +138,15 @@ void semantics(node* root) {
             semantics(right);
             
             if(left->nodetype == NODE_ADDR_OF) {
-                printf("Error: Cannot assign to address of variable '%s'\n", left->right->varname);
+                printf("Semantics Error: Cannot assign to address of variable '%s'\n", left->right->varname);
                 exit(1);
             }
 
             if(left->nodetype == NODE_ID) {
 
                 // ID nodes that are pointers
-                if(left->gstEntry->ptr_level > 0) {
+                gst* entry = globalLookup(gstRoot, lstRoot, left->varname);
+                if(entry && entry->ptr_level > 0) {
                     if(right->nodetype == NODE_NULL) {
                         // Allowed
                         break;
@@ -72,11 +157,11 @@ void semantics(node* root) {
 
             //General check for cases where LHS is ID or ARRAY or PTR but RHS is not NULL.
             if(getDerefLevel(left) != getDerefLevel(right)) {
-                printf("Error: Dereference level mismatch in assignment to variable '%s'\n", left->varname);
+                printf("Semantics Error: Dereference level mismatch in assignment to variable '%s'\n", left->varname);
                 exit(1);
             }
             if(left->type != right->type) {
-                printf("Error: type mismatch in assignment to variable '%s'\n", left->varname);
+                printf("Semantics Error: type mismatch in assignment to variable '%s'\n", left->varname);
                 exit(1);
             }
 
@@ -84,9 +169,13 @@ void semantics(node* root) {
         }
 
         case NODE_ID: {
-            if(root->gstEntry == NULL) {
-                printf("Error: Undeclared variable '%s'\n", root->varname);
+            gst* entry = globalLookup(gstRoot, lstRoot, root->varname);
+            if(entry == NULL) {
+                printf("Semantics Error: Undeclared variable '%s'\n", root->varname);
                 exit(1);
+            }
+            if(root->type == -1) {
+                root->type = entry->type;
             }
             return;
         }
@@ -96,25 +185,25 @@ void semantics(node* root) {
             semantics(root->right); 
 
             if(root->gstEntry == NULL) {
-                printf("Error: Undeclared array '%s'\n", root->varname);
+                printf("Semantics Error: Undeclared array '%s'\n", root->varname);
                 exit(1);
             }
             if(root->gstEntry->size == 1) {
-                printf("Error: Variable '%s' is not declared as an array \n", root->varname);
+                printf("Semantics Error: Variable '%s' is not declared as an array \n", root->varname);
                 exit(1);
             }
             if(getDerefLevel(root->right) != 0) {
-                printf("Error: Invalid dereference level in index expression for array '%s'\n", root->varname);
+                printf("Semantics Error: Invalid dereference level in index expression for array '%s'\n", root->varname);
                 exit(1);
             }
             if(root->right->type != TYPE_INT) {
-                printf("Error: Non-integer index expression for array '%s'\n", root->varname);
+                printf("Semantics Error: Non-integer index expression for array '%s'\n", root->varname);
                 exit(1);
             }
             if(root->right->nodetype == NODE_NUM) {
                 int index = root->right->val;
                 if (index < 0 || index >= root->gstEntry->size) {
-                    printf("Error: Array index out of bounds for array '%s' (size is %d, index accessed is %d)\n", root->varname, root->gstEntry->size, index);
+                    printf("Semantics Error: Array index out of bounds for array '%s' (size is %d, index accessed is %d)\n", root->varname, root->gstEntry->size, index);
                     exit(1);
                 }
             }
@@ -122,16 +211,24 @@ void semantics(node* root) {
         }
 
         case NODE_PTR: {
-            if(root->type != TYPE_INT && root->type != TYPE_STR) {
-                printf("Error: Pointers to type '%d' not supported\n", root->type);
+            gst* entry = globalLookup(gstRoot, lstRoot, root->varname);
+            if(!entry) {
+                printf("Semantics Error: Undeclared pointer variable '%s'\n", root->varname);
                 exit(1);
             }
-            if(root->gstEntry == NULL) {
-                printf("Error: Undeclared pointer variable '%s'\n", root->right->varname);
+            if(root->type == -1) {
+                root->type = entry->type;
+            }
+            if(entry->type != TYPE_INT && entry->type != TYPE_STR) {
+                printf("Semantics Error: Pointers to type '%d' not supported\n", entry->type);
+                exit(1);
+            }
+            if(globalLookup(gstRoot, lstRoot, root->right->varname) == NULL) {
+                printf("Semantics Error: Undeclared pointer variable '%s'\n", root->right->varname);
                 exit(1);
             }
             if(getDerefLevel(root) < 0) {
-                printf("Error: Invalid dereference level for pointer variable '%s'\n", root->right->varname);
+                printf("Semantics Error: Invalid dereference level for pointer variable '%s'\n", root->right->varname);
                 exit(1);
             }
             return;
@@ -143,11 +240,11 @@ void semantics(node* root) {
             semantics(root->right);
 
             if(getDerefLevel(root->left) != getDerefLevel(root->right)) {
-                printf("Error: Dereference level mismatch in equality comparison\n");
+                printf("Semantics Error: Dereference level mismatch in equality comparison\n");
                 exit(1);
             }
             if(root->left->type != root->right->type) {
-                printf("Error: Type mismatch in equality comparison\n");
+                printf("Semantics Error: Type mismatch in equality comparison\n");
                 exit(1);
             }
 
@@ -172,7 +269,7 @@ void semantics(node* root) {
             }
 
             if (root->nodetype == NODE_MINUS && getDerefLevel(right) > 0) {
-                printf("Error: Cannot subtract a pointer from an integer\n");
+                printf("Semantics Error: Cannot subtract a pointer from an integer\n");
                 exit(1);
             }
 
@@ -192,7 +289,7 @@ void semantics(node* root) {
                 return;
             }
 
-            printf("Error: Invalid operands for operator '%s'\n", root->nodetype == NODE_PLUS ? "+" : "-");
+            printf("Semantics Error: Invalid operands for operator '%s'\n", root->nodetype == NODE_PLUS ? "+" : "-");
             exit(1);
         }
 
@@ -218,7 +315,7 @@ void semantics(node* root) {
                 return;
             }
 
-            printf("Error: Invalid operands for OP node");
+            printf("Semantics Error: Invalid operands for OP node");
             exit(1);
         }
 
@@ -228,7 +325,7 @@ void semantics(node* root) {
             semantics(root->right); // if body
 
             if(root->left->type != TYPE_BOOL) {
-                printf("Error: Condition expression in if statement must be of type bool\n");
+                printf("Semantics Error: Condition expression in if statement must be of type bool\n");
                 exit(1);
             }
 
@@ -244,15 +341,78 @@ void semantics(node* root) {
             semantics(right); 
 
             if(left->type != TYPE_BOOL) {
-                printf("Error: Condition expression in while statement must be of type bool\n");
+                printf("Semantics Error: Condition expression in while statement must be of type bool\n");
                 exit(1);
             }
 
             return;
         }
-    }
 
-    // Semantic check for OP already done within tree.c
+        case NODE_FNDEF: {
+            gst* gstEntry = root->gstEntry;
+            node* paramList = root->left;
+
+            if(!gstLookup(gstRoot, root->varname)) {
+                printf("Semantics Error: Function '%s' not declared\n", root->varname);
+                exit(1);
+            }
+
+            if(root->type != root->gstEntry->type) {
+                printf("Semantics Error: Return type mismatch in function definition for function '%s'\n", root->varname);
+                exit(1);
+            }
+
+            struct paramStruct* params = gstEntry->paramList;
+            matchParamsList(&params, paramList);
+            if(params != NULL) {
+                printf("Semantics Error: Too few arguments in function definition for function '%s'\n", root->varname);
+                exit(1);
+            }
+
+            // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
+            params = gstEntry->paramList; // reset params pointer to head of list
+            while(params != NULL) {
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->ptr_level);
+                params = params->next;
+            }
+            buildLST(root->right->left, &lstRoot, gstEntry->paramList);
+
+            printGST(lstRoot);
+
+            semantics(root->right->right); // function body
+
+            freeLst(lstRoot);
+            lstRoot = NULL;
+
+            return;
+        }
+
+        case NODE_FNCALL: {
+            gst* gstEntry = root->gstEntry;
+            node* argList = root->right;
+
+            if(!gstEntry) {
+                printf("Semantics Error: Undeclared function '%s'\n", root->varname);
+                exit(1);
+            }
+
+            if(root->type != gstEntry->type) {
+                printf("Semantics Error: Return type mismatch in function call for function '%s'\n", root->varname);
+                exit(1);
+            }
+
+            matchParamsList(&gstEntry->paramList, argList);
+
+            if(gstEntry->paramList != NULL) {
+                printf("Semantics Error: Too few arguments in function call for function '%s'\n", root->varname);
+                exit(1);
+            }
+
+            semantics(argList); // check semantics of arguments
+
+            return;
+        }
+    }
 
     semantics(root->left);
     semantics(root->right);

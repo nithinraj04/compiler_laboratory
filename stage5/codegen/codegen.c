@@ -1,5 +1,5 @@
 #include "../tree/tree.h"
-#include "../gst/gst.h"
+#include "../symbol_table/gst.h"
 #include "utils.h"
 #include "libfuncs.h"
 #include <stdio.h>

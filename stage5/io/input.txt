@@ -1,0 +1,15 @@
+decl 
+int a, *p, **q, r[10];
+enddecl
+
+a = 10;
+p = &a;
+q = &p;
+write(*p);
+*p = 20;
+write(a);
+p = &r + 1;
+*p = 100;
+write(r[0]);
+write(r[1]);
+write(r[*p - 99]);

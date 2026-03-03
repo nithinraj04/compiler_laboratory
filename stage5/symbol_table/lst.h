@@ -10,5 +10,6 @@ gst* lstLookup(gst* head, char* name);
 gst* lstInstall(gst* head, char* name, varType type, int ptr_level);
 gst* globalLookup(gst* gstHead, gst* lstHead, char* name);
 void freeLst(gst* head);
+int bindParams(gst* head);
 
 #endif

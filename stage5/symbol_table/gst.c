@@ -13,6 +13,10 @@ gst* createGstNode(char* name, varType type, int size) {
     newNode->type = type;
     newNode->size = size;
     newNode->binding = -1;
+    newNode->relativeBinding = -1;
+    newNode->ptr_level = 0;
+    newNode->paramList = NULL;
+    newNode->fLabel = -1;
     newNode->next = NULL;
     return newNode;
 }

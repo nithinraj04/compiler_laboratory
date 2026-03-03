@@ -3,16 +3,28 @@
 #include <string.h>
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
+#include "../codegen/utils.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
 
 void matchParamsList(struct paramStruct** paramList, node* argList) {
-    if(paramList == NULL && argList == NULL) {
-        return;
+    if(paramList == NULL || *paramList == NULL) {
+        if(argList == NULL) {
+            return;
+        }
+        if(argList->nodetype == NODE_CONNECTOR) {
+            matchParamsList(paramList, argList->left);
+            matchParamsList(paramList, argList->right);
+            return;
+        }
+        printf("Semantics Error: Too many arguments in function definition/call\n");
+        exit(1);
     }
 
-    if(argList == NULL) return;
+    if(argList == NULL) {
+        return;
+    }
     
     if(argList->nodetype == NODE_CONNECTOR) {
         matchParamsList(paramList, argList->left);
@@ -38,54 +50,20 @@ void matchParamsList(struct paramStruct** paramList, node* argList) {
         return;
     }
 
-    if((*paramList)->type != argList->type) {
-        printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
-        exit(1);
-    }
-    if((*paramList)->ptr_level != getDerefLevel(argList)) {
-        printf("Semantics Error: Fn call - Dereference level mismatch for parameter '%s'\n", (*paramList)->name);
-        exit(1);
+    if(argList->nodetype == NODE_ARG) {
+        if((*paramList)->type != argList->left->type) {
+            printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
+            exit(1);
+        }
+        if((*paramList)->ptr_level != getDerefLevel(argList->left)) {
+            printf("Semantics Error: Fn call - Dereference level mismatch for parameter '%s'\n", (*paramList)->name);
+            exit(1);
+        }
+        *paramList = (*paramList)->next;
+        return;
     }
     *paramList = (*paramList)->next;
     return;
-}
-
-void assignTypesLocal(node* root, varType type, gst** lst, struct paramStruct* paramList) {
-    if(root == NULL) {
-        return;
-    }
-
-    if(root->nodetype == NODE_ID) {
-        char* varname = root->varname;
-        int ptr_level = -1*getDerefLevel(root);  // oppikal
-        *lst = lstInstall(*lst, varname, type, ptr_level);
-        root->type = type;
-        return;
-    }
-
-    if(root->nodetype == NODE_PTR) {
-        char* varname = root->varname;
-        int ptr_level = -1*getDerefLevel(root);  // oppikal
-        *lst = lstInstall(*lst, varname, type, ptr_level);
-        root->type = type;
-        return;
-    }
-
-    assignTypesLocal(root->left, type, lst, paramList);
-    assignTypesLocal(root->right, type, lst, paramList);
-}
-
-void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
-    if(!root) return;
-
-    if(root->nodetype == NODE_LDECL) {
-        varType type = root->left->type;
-        assignTypesLocal(root->right, type, lst, paramList);
-        return;
-    }
-
-    buildLST(root->left, lst, paramList);
-    buildLST(root->right, lst, paramList);
 }
 
 int getDerefLevel(node* root) {
@@ -375,15 +353,14 @@ void semantics(node* root) {
                 lstRoot = lstInstall(lstRoot, params->name, params->type, params->ptr_level);
                 params = params->next;
             }
-            buildLST(root->right->left, &lstRoot, gstEntry->paramList);
+            bindParams(lstRoot); // assign bindings to parameters
 
-            printGST(lstRoot);
+            buildLST(root->right->left, &lstRoot, gstEntry->paramList);
 
             semantics(root->right->right); // function body
 
             freeLst(lstRoot);
             lstRoot = NULL;
-
             return;
         }
 
@@ -401,15 +378,25 @@ void semantics(node* root) {
                 exit(1);
             }
 
-            matchParamsList(&gstEntry->paramList, argList);
+            semantics(argList); // resolve/check argument expression types before signature matching
 
-            if(gstEntry->paramList != NULL) {
+            struct paramStruct* params = gstEntry->paramList;
+            matchParamsList(&params, argList);
+
+            if(params != NULL) {
                 printf("Semantics Error: Too few arguments in function call for function '%s'\n", root->varname);
                 exit(1);
             }
 
-            semantics(argList); // check semantics of arguments
+            return;
+        }
 
+        case NODE_MAIN: {
+            buildLST(root->left, &lstRoot, NULL);
+            printGST(lstRoot);
+            semantics(root->right);
+            freeLst(lstRoot);
+            lstRoot = NULL;
             return;
         }
     }

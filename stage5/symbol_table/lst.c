@@ -74,3 +74,11 @@ void freeLst(gst* head) {
     }
     localBindingCounter = 1; // Reset binding counter for next function
 }
+
+int bindParams(gst* head) {
+    if(head == NULL) return -2;
+
+    head->relativeBinding = bindParams(head->next) - 1;
+    localBindingCounter--;
+    return head->relativeBinding;
+}

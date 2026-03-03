@@ -8,26 +8,39 @@
 
 int regCount = 0;
 int label = 0;
+int fnlabel = 0;
 
 labelStack* labelStackTop = NULL;
 extern gst* gstRoot;
+extern gst* lstRoot;
 
 extern int binaryOpHandler(node* root, FILE* targetFile);
 
-int getAddr(node* varNode);
+int getAddr(node* varNode, FILE* targetFile);
 int codeGen(node* root, FILE* targetFile);
 
-int getAddr(node* varNode) {
-    return varNode->gstEntry->binding;
+int getAddr(node* varNode, FILE* targetFile) {
+    gst* entry = globalLookup(gstRoot, lstRoot, varNode->varname);
+        if(entry == NULL) {
+            printf("Semantics Error: Undeclared variable '%s'\n", varNode->varname);
+            exit(1);
+        }
+    if(entry->relativeBinding != -1) {
+        int reg = getReg();
+        fprintf(targetFile, "MOV R%d, BP\n", reg);
+        fprintf(targetFile, "ADD R%d, %d\n", reg, entry->relativeBinding);
+        return reg;
+    }
+    int reg = getReg();
+    fprintf(targetFile, "MOV R%d, %d\n", reg, entry->binding);
+    return reg;
 }
 int getArrayAddr(FILE* targetFile, node* arrayNode) {
-    int reg = getReg();
-    int baseAddr = getAddr(arrayNode);
-    fprintf(targetFile, "MOV R%d, %d\n", reg, baseAddr);
+    int baseAddr = getAddr(arrayNode, targetFile);
     int indexReg = codeGen(arrayNode->right, targetFile);
-    fprintf(targetFile, "ADD R%d, R%d\n", reg, indexReg);
+    fprintf(targetFile, "ADD R%d, R%d\n", baseAddr, indexReg);
     freeReg(); // Free indexReg
-    return reg;
+    return baseAddr;
 }
 
 int codeGen(node* root, FILE* targetFile) {
@@ -48,7 +61,8 @@ int codeGen(node* root, FILE* targetFile) {
         }
         case NODE_ID: {
             int reg = getReg();
-            fprintf(targetFile, "MOV R%d, [%d]\n", reg, getAddr(root));
+            fprintf(targetFile, "MOV R%d, [R%d]\n", reg, getAddr(root, targetFile));
+            freeReg(); // Free address register
             return reg;
         }
         case NODE_ARRAY: {
@@ -71,7 +85,7 @@ int codeGen(node* root, FILE* targetFile) {
             return binaryOpHandler(root, targetFile);
         }
         case NODE_ASSIGN: {
-            int leftAddr = getAddr(root->left);
+            int leftAddr = getAddr(root->left, targetFile);
             int rightReg = codeGen(root->right, targetFile);
             if(root->left->nodetype == NODE_ARRAY) {
                 int arrayReg = getArrayAddr(targetFile, root->left);
@@ -84,9 +98,10 @@ int codeGen(node* root, FILE* targetFile) {
                 freeReg();
             }
             else {
-                fprintf(targetFile, "MOV [%d], R%d\n", leftAddr, rightReg);
+                fprintf(targetFile, "MOV [R%d], R%d\n", leftAddr, rightReg);
             }
             freeReg();
+            freeReg(); 
             return -1;
         }
         case NODE_WRITE: {
@@ -107,10 +122,8 @@ int codeGen(node* root, FILE* targetFile) {
                 freeReg();
             }
             else {
-                int leftAddr = getAddr(root->left);
-                int reg = getReg();
-                fprintf(targetFile, "MOV R%d, %d\n", reg, leftAddr);
-                read(reg, targetFile);
+                int leftAddr = getAddr(root->left, targetFile);
+                read(leftAddr, targetFile);
                 freeReg();
             }
             return -1;
@@ -206,6 +219,117 @@ int codeGen(node* root, FILE* targetFile) {
             int reg = getReg();
             fprintf(targetFile, "MOV R%d, %d\n", reg, root->val);
             return reg;
+        }
+        case NODE_FNDEF: {
+            if(root->gstEntry->fLabel != -1) {
+                printf("Error: Redeclaration of Function '%s'.\n", root->varname);
+                exit(1);
+            }
+            int fnLabel = getFnLabel();
+            fprintf(targetFile, "F%d:\n", fnLabel);
+            root->gstEntry->fLabel = fnLabel;
+
+            fprintf(targetFile, "PUSH BP\n");  // Save caller's BP
+            fprintf(targetFile, "MOV BP, SP\n");  // Set BP to current SP
+
+            struct paramStruct* params = root->gstEntry->paramList;
+            while(params != NULL) {
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->ptr_level);
+                params = params->next;
+            }
+            bindParams(lstRoot); // assign bindings to parameters
+            buildLST(root->right->left, &lstRoot, root->gstEntry->paramList);
+
+            gst* localHead = lstRoot;
+            gst* localCursor = localHead;
+            while(localCursor != NULL) {
+                if(localCursor->binding != -1 || localCursor->relativeBinding >= 0) {
+                    fprintf(targetFile, "PUSH R0\n"); // Allocate space for local variable
+                }
+                localCursor = localCursor->next;
+            }
+
+            codeGen(root->right, targetFile);
+
+            fprintf(targetFile, "MOV SP, BP\n"); // Deallocate local variables
+            fprintf(targetFile, "POP BP\n"); // Restore caller's BP
+            fprintf(targetFile, "RET\n");
+
+                freeLst(localHead);
+                lstRoot = NULL;
+            return -1;
+        }
+        case NODE_LDECL: {
+            return -1;
+        }
+        case NODE_RETURN: {
+            int retReg = codeGen(root->left, targetFile);
+            int retAddrReg = getReg();
+            fprintf(targetFile, "MOV R%d, BP\n", retAddrReg);
+            fprintf(targetFile, "SUB R%d, 2\n", retAddrReg);
+            fprintf(targetFile, "MOV [R%d], R%d\n", retAddrReg, retReg);
+            freeReg();
+            freeReg();
+            return -1;
+        }
+        case NODE_MAIN: {
+            fprintf(targetFile, "M0:\n");
+            fprintf(targetFile, "MOV BP, SP\n");
+            buildLST(root->left, &lstRoot, NULL);
+
+            //Reserve space for local vars
+            gst* localCursor = lstRoot;
+            while(localCursor != NULL) {
+                if(localCursor->binding != -1 || localCursor->relativeBinding >= 0) {
+                    fprintf(targetFile, "PUSH R0\n"); // Allocate space for local variable
+                }
+                localCursor = localCursor->next;
+            }
+
+            codeGen(root->right, targetFile);
+            fprintf(targetFile, "INT 10\n");
+            freeLst(lstRoot);
+            return -1;
+        }
+        case NODE_FNCALL: {
+            int regCount = getRegCount();
+            printf("Pushed %d registers before function call\n", regCount);
+            for(int i = 0; i < regCount; i++) {
+                fprintf(targetFile, "PUSH R%d\n", i);
+            }
+            
+            pushRegStack();
+            codeGen(root->right, targetFile); // evaluate args
+            fprintf(targetFile, "PUSH R0\n"); // space for return value
+            fprintf(targetFile, "CALL F%d\n", root->gstEntry->fLabel); // Transfer control
+
+            popRegStack();
+
+            int retReg = getReg();
+            fprintf(targetFile, "POP R%d\n", retReg); // Get return value
+
+            // Clean up arguments from stack
+            int argCount = 0;
+            struct paramStruct* paramList = root->gstEntry->paramList;
+            while(paramList) {
+                argCount++;
+                paramList = paramList->next;
+            }
+            if(argCount > 0) {
+                fprintf(targetFile, "SUB SP, %d\n", argCount);
+            }
+
+            for(int i = regCount - 1; i >= 0; i--) {
+                fprintf(targetFile, "POP R%d\n", i);
+            }
+
+            return retReg;
+        }
+        case NODE_ARG: {
+            int argReg = codeGen(root->left, targetFile);
+            fprintf(targetFile, "PUSH R%d\n", argReg);
+            freeReg();
+            return -1;
         }
         default:
             fprintf(stderr, "Error: Unknown node type %d\n", root->nodetype);

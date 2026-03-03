@@ -6,6 +6,47 @@
 
 extern int codeGen(node* root, FILE* targetFile);
 extern struct gst* gstRoot;
+extern int fnlabel;
+
+typedef struct regStack {
+    int reg;
+    struct regStack* next;
+    struct regStack* prev;
+} regStack;
+
+regStack* regStackTop = NULL;
+
+regStack* createRegStackNode(int reg) {
+    regStack* temp = (regStack*) malloc(sizeof(regStack));
+    temp->reg = reg;
+    temp->next = NULL;
+    temp->prev = NULL;
+    return temp;
+}
+
+void pushRegStack() {
+    regStack* newNode = createRegStackNode(regCount);
+    if(regStackTop != NULL) {
+        regStackTop->next = newNode;
+        newNode->prev = regStackTop;
+    }
+    regStackTop = newNode;
+    regCount = 0;
+}
+
+void popRegStack() {
+    if(regStackTop == NULL) {
+        fprintf(stderr, "Error: Trying to pop from empty register stack\n");
+        exit(1);
+    }
+    regStack* temp = regStackTop;
+    regStackTop = regStackTop->prev;
+    if(regStackTop != NULL) {
+        regStackTop->next = NULL;
+    }
+    regCount = temp->reg;
+    free(temp);
+}
 
 int getReg() {
     if(regCount < 20) {
@@ -21,8 +62,64 @@ void freeReg() {
     }
 }
 
+int getRegCount() {
+    return regCount;
+}
+
 int getLabel() {
     return label++;
+}
+
+int getFnLabel() {
+    return fnlabel++;
+}
+
+static int getDeclaredPtrLevel(node* root) {
+    int level = 0;
+    node* current = root;
+    while(current && current->nodetype == NODE_PTR) {
+        level++;
+        current = current->right;
+    }
+    return level;
+}
+
+void assignTypesLocal(node* root, varType type, gst** lst, struct paramStruct* paramList) {
+    if(root == NULL) {
+        return;
+    }
+
+    if(root->nodetype == NODE_ID) {
+        char* varname = root->varname;
+        int ptr_level = 0;
+        *lst = lstInstall(*lst, varname, type, ptr_level);
+        root->type = type;
+        return;
+    }
+
+    if(root->nodetype == NODE_PTR) {
+        char* varname = root->varname;
+        int ptr_level = getDeclaredPtrLevel(root);
+        *lst = lstInstall(*lst, varname, type, ptr_level);
+        root->type = type;
+        return;
+    }
+
+    assignTypesLocal(root->left, type, lst, paramList);
+    assignTypesLocal(root->right, type, lst, paramList);
+}
+
+void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
+    if(!root) return;
+
+    if(root->nodetype == NODE_LDECL) {
+        varType type = root->left->type;
+        assignTypesLocal(root->right, type, lst, paramList);
+        return;
+    }
+
+    buildLST(root->left, lst, paramList);
+    buildLST(root->right, lst, paramList);
 }
 
 int binaryOpHandler(node* root, FILE* targetFile) {

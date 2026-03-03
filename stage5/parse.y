@@ -28,7 +28,7 @@
 
 %type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt 
 %type <p> gDeclBlock gDeclList gDecl type gVarList identifier gVar index ptr fDefBlock mainBlock
-%type <p> paramList param fDef lDeclBlock lDeclList lDecl lVarList lVar fBody retStmt argList
+%type <p> paramList param fDef lDeclBlock lDeclList lDecl lVarList lVar fBody retStmt argList arg
 
 %nonassoc '<' '>' GE LE EQ NE
 %left '+' '-'
@@ -37,7 +37,7 @@
 
 %%
 
-start : gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode($1, makeConnectorNode($2, $3)); printGST(gstRoot); }
+start : gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode($1, makeConnectorNode($2, $3)); }
       | gDeclBlock mainBlock             { root = makeConnectorNode($1, $2); }
       | mainBlock                        { root = $1; }
       ;
@@ -163,9 +163,12 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | NULLVAL               { $$ = makeNullNode(); }
      ;
 
-argList : argList ',' expr   { $$ = makeConnectorNode($1, $3); }
-        | expr               { $$ = $1; }
+argList : argList ',' arg   { $$ = makeConnectorNode($1, $3); }
+        | arg               { $$ = $1; }
         ;
+
+arg : expr    { $$ = makeArgNode($1); }
+    ;
 
 identifier : ID    { $$ = $1; }
            | ID '[' index ']'   { $$ = makeArrayNode($1, $3); }
@@ -209,8 +212,10 @@ int main() {
     fprintf(targetFile, "0\n2056\n0\n0\n0\n0\n0\n0\n");
     fprintf(targetFile, "BRKP\n");
     fprintf(targetFile, "MOV SP, %d\n", getSP());
+    fprintf(targetFile, "PUSH R0\n");
+    fprintf(targetFile, "PUSH R0\n");
+    fprintf(targetFile, "CALL M0\n");
     codeGen(root, targetFile);
-    fprintf(targetFile, "INT 10\n");
 
     printAST(root, "", 1);
     printGST(gstRoot);

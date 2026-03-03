@@ -17,7 +17,12 @@ labelStack* popLabelStack(labelStack* top);
 
 int getReg();
 void freeReg();
+int getRegCount();
 int getLabel();
+int getFnLabel();
+void buildLST(node* root, gst** lst, struct paramStruct* paramList);
+void pushRegStack();
+void popRegStack();
 
 extern int regCount;
 extern int label;

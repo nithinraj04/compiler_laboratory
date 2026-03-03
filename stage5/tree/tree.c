@@ -111,11 +111,6 @@ node* makeLeafIdNode(char* varname) {
 }
 
 node* makeArrayNode(node* varname, node* sizeNode) {
-    if(sizeNode->type != TYPE_INT) {
-        printf("Error: Array index must be an integer\n");
-        exit(1);
-    }
-
     node* temp = createTreeNode();
     temp->varname = strdup(varname->varname);
     temp->nodetype = NODE_ARRAY;
@@ -402,5 +397,14 @@ node* makeLDeclNode(node* type, node* varlist) {
     temp->nodetype = NODE_LDECL;
     temp->left = type;
     temp->right = varlist;
+    return temp;
+}
+
+node* makeArgNode(node* expr) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_ARG;
+    temp->type = expr->type;
+    temp->left = expr;
+    temp->right = NULL;
     return temp;
 }

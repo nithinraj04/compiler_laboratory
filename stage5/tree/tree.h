@@ -42,7 +42,8 @@ typedef enum {
     NODE_PARAM,
     NODE_RETURN,
     NODE_MAIN,
-    NODE_LDECL
+    NODE_LDECL,
+    NODE_ARG
 } nodeType;
 
 enum varType {
@@ -94,5 +95,6 @@ node* makeReturnNode(node* retVal);
 node* makeFnCallNode(node* fnName, node* argList);
 node* makeMainNode(node* lDeclBlock, node* body);
 node* makeLDeclNode(node* type, node* varlist);
+node* makeArgNode(node* expr);
 
 #endif

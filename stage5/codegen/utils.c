@@ -74,13 +74,14 @@ int getFnLabel() {
     return fnlabel++;
 }
 
-static int getDeclaredPtrLevel(node* root) {
+int getDeclaredPtrLevel(node* root) {
     int level = 0;
     node* current = root;
     while(current && current->nodetype == NODE_PTR) {
         level++;
         current = current->right;
     }
+    printf("Level: %d\n", level);
     return level;
 }
 

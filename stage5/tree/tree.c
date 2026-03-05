@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tree.h"
+#include "../codegen/utils.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
@@ -10,7 +11,7 @@ void enterParamsList(node* root, gst* gstEntry) {
     if(root == NULL) return;
 
     if(root->nodetype == NODE_PARAM) {
-        int ptr_level = -1*getDerefLevel(root->right);  // oppikal
+        int ptr_level = getDeclaredPtrLevel(root->right);
         appendParam(gstEntry, root->varname, root->type, ptr_level);
         return;
     }
@@ -148,11 +149,19 @@ node* makeOpNode(char* op, node* left, node* right) {
     }
     else if(strcmp(op, "+") == 0) {
         temp->nodetype = NODE_PLUS;
-        temp->type = TYPE_INT;
+        if(temp->right->type == TYPE_STR || temp->left->type == TYPE_STR) {
+            temp->type = TYPE_STR;
+        } else {
+            temp->type = TYPE_INT;
+        }
     }
     else if(strcmp(op, "-") == 0) { 
         temp->nodetype = NODE_MINUS;
-        temp->type = TYPE_INT;
+        if(temp->right->type == TYPE_STR || temp->left->type == TYPE_STR) {
+            temp->type = TYPE_STR;
+        } else {
+            temp->type = TYPE_INT;
+        }
     }
     else if(strcmp(op, "*") == 0) {
         temp->nodetype = NODE_MUL;

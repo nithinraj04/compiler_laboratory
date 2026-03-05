@@ -217,7 +217,7 @@ int codeGen(node* root, FILE* targetFile) {
         }
         case NODE_ADDR_OF: {
             int reg = getReg();
-            fprintf(targetFile, "MOV R%d, %d\n", reg, root->val);
+            fprintf(targetFile, "MOV R%d, R%d\n", reg, getAddr(root->right, targetFile));
             return reg;
         }
         case NODE_FNDEF: {
@@ -448,6 +448,12 @@ void printAST(node* root, const char* prefix, int isLast) {
             break;
         case NODE_MAIN:
             printf("MAIN\n");
+            break;
+        case NODE_ARG:
+            printf("ARG\n");
+            break;
+        case NODE_LDECL:
+            printf("LDECL\n");
             break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);

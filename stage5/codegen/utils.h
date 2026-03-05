@@ -23,6 +23,7 @@ int getFnLabel();
 void buildLST(node* root, gst** lst, struct paramStruct* paramList);
 void pushRegStack();
 void popRegStack();
+int getDeclaredPtrLevel(node* root);
 
 extern int regCount;
 extern int label;

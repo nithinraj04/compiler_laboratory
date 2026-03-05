@@ -52,7 +52,7 @@ void matchParamsList(struct paramStruct** paramList, node* argList) {
 
     if(argList->nodetype == NODE_ARG) {
         if((*paramList)->type != argList->left->type) {
-            printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
+            printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s' '%d' vs '%d'\n", (*paramList)->name, (*paramList)->type, argList->left->type);
             exit(1);
         }
         if((*paramList)->ptr_level != getDerefLevel(argList->left)) {
@@ -154,6 +154,18 @@ void semantics(node* root) {
             }
             if(root->type == -1) {
                 root->type = entry->type;
+            }
+            return;
+        }
+
+        case NODE_ADDR_OF: {
+            if(!root->gstEntry) {
+                root->gstEntry = globalLookup(gstRoot, lstRoot, root->varname);
+                if(root->gstEntry == NULL) {
+                    printf("Semantics Error: Undeclared variable '%s'\n", root->varname);
+                    exit(1);
+                }
+                root->type = root->gstEntry->type;
             }
             return;
         }
@@ -356,6 +368,8 @@ void semantics(node* root) {
             bindParams(lstRoot); // assign bindings to parameters
 
             buildLST(root->right->left, &lstRoot, gstEntry->paramList);
+
+            printGST(lstRoot);
 
             semantics(root->right->right); // function body
 

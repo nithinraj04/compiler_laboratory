@@ -242,11 +242,16 @@ int codeGen(node* root, FILE* targetFile) {
 
             gst* localHead = lstRoot;
             gst* localCursor = localHead;
+            
+            int localVarReserve = 0;
             while(localCursor != NULL) {
                 if(localCursor->binding != -1 || localCursor->relativeBinding >= 0) {
-                    fprintf(targetFile, "PUSH R0\n"); // Allocate space for local variable
+                    localVarReserve++;
                 }
                 localCursor = localCursor->next;
+            }
+            if(localVarReserve > 0) {
+                fprintf(targetFile, "ADD SP, %d\n", localVarReserve); // Reserve space for local variables
             }
 
             codeGen(root->right, targetFile);

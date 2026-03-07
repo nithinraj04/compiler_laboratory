@@ -31,11 +31,13 @@ digit [0-9]
 "breakpoint" { return BRKP; }
 "decl"       { return DECL; }
 "enddecl"    { return ENDDECL; }
-"int"    { return INT; }
-"str"    { return STR; }
-"NULL"   { return NULLVAL; }
-"return" { return RETURN; }
-"main"   { return MAIN; }
+"int"     { return INT; }
+"str"     { return STR; }
+"NULL"    { return NULLVAL; }
+"return"  { return RETURN; }
+"main"    { return MAIN; }
+"type"    { return TYPE; }
+"endtype" { return ENDTYPE; }
 [a-zA-Z][a-zA-Z0-9]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "+"      { return '+'; }
 "-"      { return '-'; }

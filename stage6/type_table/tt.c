@@ -40,6 +40,10 @@ typeTable* ttInstall(char *name) {
     typeTable *curr = ttHead;
     while(curr->next != NULL) {
         curr = curr->next;
+        if(strcmp(curr->name, name) == 0) {
+            printf("Error: Type '%s' already exists in type table\n", name);
+            exit(1);
+        }
     }
     curr->next = temp;
     return temp;
@@ -56,7 +60,7 @@ typeTable* ttLookup(char *name) {
     return NULL;
 }
 
-void ttAddField(char* name, char* typeName) {
+void ttAddField(char* typeName, char* name) {
     if(ttHead == NULL) {
         printf("Error: No types in type table\n");
         exit(1);
@@ -101,4 +105,17 @@ fieldList* ttFieldLookup(char* type, char* fieldName) {
         curr = curr->next;
     }
     return NULL;
+}
+
+void ttPrint() {
+    typeTable *curr = ttHead;
+    while(curr != NULL) {
+        printf("Type: %s, Size: %d\n", curr->name, curr->size);
+        fieldList *fieldCurr = curr->fields;
+        while(fieldCurr != NULL) {
+            printf("  Field: %s, Type: %s, Index: %d\n", fieldCurr->name, fieldCurr->type->name, fieldCurr->fieldIndex);
+            fieldCurr = fieldCurr->next;
+        }
+        curr = curr->next;
+    }
 }

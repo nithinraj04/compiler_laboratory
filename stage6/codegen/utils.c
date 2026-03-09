@@ -1,12 +1,14 @@
 #include "utils.h"
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
+#include "../type_table/tt.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 extern int codeGen(node* root, FILE* targetFile);
 extern struct gst* gstRoot;
 extern int fnlabel;
+extern struct gst* lstRoot;
 
 typedef struct regStack {
     int reg;
@@ -85,7 +87,7 @@ int getDeclaredPtrLevel(node* root) {
     return level;
 }
 
-void assignTypesLocal(node* root, varType type, gst** lst, struct paramStruct* paramList) {
+void assignTypesLocal(node* root, typeTable* type, gst** lst, struct paramStruct* paramList) {
     if(root == NULL) {
         return;
     }
@@ -114,7 +116,11 @@ void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
     if(!root) return;
 
     if(root->nodetype == NODE_LDECL) {
-        varType type = root->left->type;
+        typeTable* type = ttLookup(root->left->varname);
+        if(type == NULL) {
+            printf("Error: Undeclared type '%s' in local declaration\n", root->left->varname);
+            exit(1);
+        }
         assignTypesLocal(root->right, type, lst, paramList);
         return;
     }
@@ -143,7 +149,7 @@ int binaryOpHandler(node* root, FILE* targetFile) {
         return leftReg;
     }
 
-    if(root->left->type != TYPE_INT || root->right->type != TYPE_INT) {
+    if(root->left->type != ttLookup("int") || root->right->type != ttLookup("int")) {
         printf("Error: Non-integer operand in binary operation\n");
         exit(1);
     }
@@ -181,6 +187,56 @@ int binaryOpHandler(node* root, FILE* targetFile) {
     }
     freeReg();
     return leftReg;
+}
+
+void installType(node* root) {
+    if(root == NULL) {
+        return;
+    }
+
+    if(root->nodetype == NODE_TYPEDEF) {
+        ttInstall(root->left->varname);
+        installType(root->right);
+        return;
+    }
+
+    if(root->nodetype == NODE_FIELDDECL) {
+        ttAddField(root->left->varname, root->right->varname);
+        return;
+    }
+
+    installType(root->left);
+    installType(root->right);
+}
+
+typeTable* getType(node* root) {
+    if(root == NULL) {
+        return NULL;
+    }
+    
+    if(root->nodetype != NODE_FIELD) {
+        return root->type;
+    }
+
+    typeTable* left = NULL;
+
+    if(root->left->nodetype == NODE_ID) {
+        left = root->left->type;
+    }
+    else {
+        left = getType(root->left);
+    }
+
+    if(left == NULL || left == ttLookup("int") || left == ttLookup("str") || left == ttLookup("bool") || left == ttLookup("null")) {
+        printf("Error: Attempting to access field of non user-defined type '%s'\n", left ? left->name : "unknown");
+        exit(1);
+    }
+    fieldList* field = ttFieldLookup(left->name, root->right->varname);
+    if(field == NULL) {
+        printf("Error: No field named '%s' in user-defined type '%s'\n", root->right->varname, left->name);
+        exit(1);
+    }
+    return field->type;
 }
 
 labelStack* createLabelStackNode(int cond, int end) {

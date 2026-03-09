@@ -4,6 +4,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include "translate/translate.h"
+    #include "type_table/tt.h"
     int yylex();  
     void yyerror(const char *s);
     void postorder(node* root);
@@ -40,9 +41,9 @@
 
 %%
 
-start : typeDefBlock gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode($1, makeConnectorNode($2, $3)); }
-      | typeDefBlock gDeclBlock mainBlock             { root = makeConnectorNode($1, $2); }
-      | typeDefBlock mainBlock                        { root = $1; }
+start : typeDefBlock gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode(makeConnectorNode($1, $2), makeConnectorNode($3, $4)); }
+      | typeDefBlock gDeclBlock mainBlock             { root = makeConnectorNode($1, makeConnectorNode($2, $3)); }
+      | typeDefBlock mainBlock                        { root = makeConnectorNode($1, $2); }
       ;
 
 // -------------------------------------------------------------
@@ -55,18 +56,19 @@ typeDefList : typeDefList typeDef   { $$ = makeConnectorNode($1, $2); }
             | typeDef               { $$ = $1; }
             ;
 
-typeDef : ID '{' fieldDeclList '}'  { /* TODO */ }
+typeDef : ID '{' fieldDeclList '}'  { $$ = makeTypeDefNode($1, $3); }
+        ;
 
 fieldDeclList : fieldDeclList fieldDecl   { $$ = makeConnectorNode($1, $2); }
               | fieldDecl                 { $$ = $1; }
               ;
 
-fieldDecl : typeName ID ';'         { /* TODO */ }
+fieldDecl : typeName ID ';'         { $$ = makeFieldDeclNode($1, $2); }
           ;
 
-typeName : INT   { /* TODO */ }
-         | STR   { /* TODO */ }
-         | ID    { /* TODO */ }
+typeName : INT   { $$ = makeLeafIdNode("int"); }  // Create makeTypeNode ig?
+         | STR   { $$ = makeLeafIdNode("str"); }
+         | ID    { $$ = $1; }
          ;
 
 // -------------------------------------------------------------
@@ -98,7 +100,7 @@ paramList : paramList ',' param   { $$ = makeConnectorNode($1, $3); }
           ;
 
 param : typeName ID   { $$ = makeParamNode($1, $2); }
-      | typeName ptr  { $$ = makeParamNode($1, $2); }   //Hmmmmm
+      | typeName ptr  { $$ = makeParamNode($1, $2); }  
       ;
 
 // ------------------------------------------------------------
@@ -161,11 +163,11 @@ inputStmt : READ '(' identifier ')' ';'    { $$ = makeReadNode($3); }
 outputStmt : WRITE '(' expr ')' ';' { $$ = makeWriteNode($3); }
            ;
 
-initializeStmt : INITIALIZE '(' ')' ';' { /* TODO */ }
+initializeStmt : INITIALIZE '(' ')' ';' { $$ = makeInitializeNode(); }
               ;
 
-freeStmt : FREE '(' ID ')' ';' { /* TODO */ }
-         | FREE '(' FIELD ')' ';' { /* TODO */ }
+freeStmt : FREE '(' ID ')' ';' { $$ = makeFreeNode($3); }
+         | FREE '(' FIELD ')' ';' { $$ = makeFreeNode($3); }
          ;
 
 assignStmt : identifier '=' expr ';'        { $$ = makeOpNode("=", $1, $3); }
@@ -193,7 +195,7 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | expr EQ expr      { $$ = makeOpNode("==", $1, $3); }
      | expr NE expr      { $$ = makeOpNode("!=", $1, $3); }
      | '(' expr ')'          { $$ = $2; }
-     | ALLOC '(' ')'         { /* TODO */ }
+     | ALLOC '(' ')'         { $$ = makeAllocNode(); }
      | ID '(' argList ')'    { $$ = makeFnCallNode($1, $3); }
      | ID '(' ')'            { $$ = makeFnCallNode($1, NULL); }
      | NUM                   { $$ = $1; }
@@ -202,8 +204,8 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | NULLVAL               { $$ = makeNullNode(); }
      ;
 
-FIELD : ID '.' ID     { /* TODO */ }
-      | FIELD '.' ID  { /* TODO */ }
+FIELD : ID '.' ID     { $$ = makeFieldNode($1, $3); }
+      | FIELD '.' ID  { $$ = makeFieldNode($1, $3); }
       ;
 
 argList : argList ',' arg   { $$ = makeConnectorNode($1, $3); }
@@ -240,7 +242,10 @@ void yyerror(const char *s) {
 int main() {
     yyin = fopen("io/input.txt", "r");
 
+    ttInitialize();
     yyparse();
+    ttPrint();
+    printAST(root, "", 1);
     semantics(root);
 
     FILE* targetFile = fopen("output.xsm", "w");

@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../tree/tree.h"
+#include "../type_table/tt.h"
 #include "lst.h"
 
 gst* lstRoot = NULL;
 int localBindingCounter = 1;
 
-gst* createLstNode(char* name, varType type) {
+gst* createLstNode(char* name, typeTable* type) {
     gst* newNode = (gst*) malloc(sizeof(gst));
     newNode->name = strdup(name);
     newNode->type = type;
@@ -19,7 +20,7 @@ gst* createLstNode(char* name, varType type) {
     return newNode;
 }
 
-gst* lstInstall(gst* head, char* name, varType type, int ptr_level) {
+gst* lstInstall(gst* head, char* name, typeTable* type, int ptr_level) {
     gst* newNode = createLstNode(name, type);
     newNode->ptr_level = ptr_level;
 

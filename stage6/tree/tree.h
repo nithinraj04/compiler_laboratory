@@ -2,6 +2,9 @@
 #define TREE_H
 
 typedef struct gst gst; // Forward declaration of gst from gst.h
+typedef struct typeTable typeTable; // Forward declaration of typeTable from tt.h
+typedef struct fieldList fieldList; // Forward declaration of fieldList from tt.h
+
 
 typedef enum {
     NODE_EMPTY,
@@ -43,7 +46,13 @@ typedef enum {
     NODE_RETURN,
     NODE_MAIN,
     NODE_LDECL,
-    NODE_ARG
+    NODE_ARG,
+    NODE_TYPEDEF,
+    NODE_FIELDDECL,
+    NODE_FIELD,
+    NODE_INITIALIZE,
+    NODE_FREE,
+    NODE_ALLOC,
 } nodeType;
 
 enum varType {
@@ -59,7 +68,7 @@ typedef enum varType varType; // Forward declaration of varType for gst.h
 typedef struct node{
     int val;        // value of a number for NUM nodes.
     char* strval;    // value of a string for STR nodes.
-    varType type;       // type of variable
+    struct typeTable* type;       // type of variable
     char* varname;  // name of a variable for ID nodes
     nodeType nodetype;   // information about non-leaf nodes - read/write/connector/+/* etc.
     struct gst* gstEntry; // pointer to GST entry for variables
@@ -83,7 +92,7 @@ node* makeContinueNode();
 node* makeBrkpNode();
 node* makeDoWhileNode(node* body, node* cond);
 node* makeDeclNode(node* type, node* varlist);
-node* makeTypeNode(varType type);
+node* makeTypeNode(char* type);
 node* makeArrayNode(node* varname, node* size);
 node* makePtrNode(node* ptrTo);
 node* makeAddressNode(node* var);
@@ -96,5 +105,11 @@ node* makeFnCallNode(node* fnName, node* argList);
 node* makeMainNode(node* lDeclBlock, node* body);
 node* makeLDeclNode(node* type, node* varlist);
 node* makeArgNode(node* expr);
+node* makeTypeDefNode(node* typeName, node* fieldList);
+node* makeFieldDeclNode(node* typeName, node* fieldName);
+node* makeInitializeNode();
+node* makeFreeNode(node* arg);
+node* makeAllocNode();
+node* makeFieldNode(node* var, node* field);
 
 #endif

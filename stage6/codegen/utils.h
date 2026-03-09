@@ -4,6 +4,8 @@
 
 #include "../tree/tree.h"
 
+typedef struct typeTable typeTable; // Forward declaration of typeTable from tt.h
+
 typedef struct labelStack {
     int cond;
     int end;
@@ -24,6 +26,8 @@ void buildLST(node* root, gst** lst, struct paramStruct* paramList);
 void pushRegStack();
 void popRegStack();
 int getDeclaredPtrLevel(node* root);
+typeTable* getType(node* root);
+void installType(node* root);
 
 extern int regCount;
 extern int label;

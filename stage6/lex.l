@@ -39,6 +39,7 @@ digit [0-9]
 "type"    { return TYPE; }
 "endtype" { return ENDTYPE; }
 [a-zA-Z][a-zA-Z0-9]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
+"."      { return '.'; }
 "+"      { return '+'; }
 "-"      { return '-'; }
 "*"      { return '*'; }

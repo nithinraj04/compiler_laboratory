@@ -3,6 +3,7 @@
 #include <string.h>
 #include "tree.h"
 #include "../codegen/utils.h"
+#include "../type_table/tt.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
@@ -19,7 +20,7 @@ void enterParamsList(node* root, gst* gstEntry) {
     enterParamsList(root->right, gstEntry);
 }
 
-void assignType(node* root, varType type) {
+void assignType(node* root, typeTable* type) {
     if(root == NULL) {
         return;
     }
@@ -68,6 +69,7 @@ void assignType(node* root, varType type) {
 node* createTreeNode() {
     node* temp = (node*) malloc(sizeof(node));
     temp->varname = NULL;
+    temp->type = NULL;
     temp->left = NULL;
     temp->right = NULL;
     temp->gstEntry = NULL;
@@ -77,7 +79,7 @@ node* createTreeNode() {
 node* makeLeafNumNode(int n) {
     node* temp = createTreeNode();
     temp->val = n;
-    temp->type = TYPE_INT;
+    temp->type = ttLookup("int");
     temp->nodetype = NODE_NUM;
     temp->gstEntry = NULL;
     temp->left = NULL;
@@ -88,7 +90,7 @@ node* makeLeafNumNode(int n) {
 node* makeLeafStrNode(char* str) {
     node* temp = createTreeNode();
     temp->strval = strdup(str);
-    temp->type = TYPE_STR;
+    temp->type = ttLookup("str");
     temp->nodetype = NODE_STR;
     temp->gstEntry = NULL;
     temp->left = NULL;
@@ -103,8 +105,6 @@ node* makeLeafIdNode(char* varname) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
-    } else {
-        temp->type = -1;
     }
     temp->left = NULL;
     temp->right = NULL;
@@ -119,8 +119,6 @@ node* makeArrayNode(node* varname, node* sizeNode) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, varname->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
-    } else {
-        temp->type = -1;
     }
     temp->left = varname;
     temp->right = sizeNode;
@@ -141,55 +139,55 @@ node* makeOpNode(char* op, node* left, node* right) {
     }
     else if(strcmp(op, "==") == 0) {
         temp->nodetype = NODE_EQ;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else if(strcmp(op, "!=") == 0) {
         temp->nodetype = NODE_NEQ;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else if(strcmp(op, "+") == 0) {
         temp->nodetype = NODE_PLUS;
-        if(temp->right->type == TYPE_STR || temp->left->type == TYPE_STR) {
-            temp->type = TYPE_STR;
+        if(getType(temp) != ttLookup("int") || getType(temp) != ttLookup("int")) {
+            temp->type = ttLookup("str");
         } else {
-            temp->type = TYPE_INT;
+            temp->type = ttLookup("int");
         }
     }
     else if(strcmp(op, "-") == 0) { 
         temp->nodetype = NODE_MINUS;
-        if(temp->right->type == TYPE_STR || temp->left->type == TYPE_STR) {
-            temp->type = TYPE_STR;
+        if(getType(temp) != ttLookup("int") || getType(temp) != ttLookup("int")) {
+            temp->type = ttLookup("str");
         } else {
-            temp->type = TYPE_INT;
+            temp->type = ttLookup("int");
         }
     }
     else if(strcmp(op, "*") == 0) {
         temp->nodetype = NODE_MUL;
-        temp->type = TYPE_INT;
+        temp->type = ttLookup("int");
     }
     else if(strcmp(op, "%") == 0) {
         temp->nodetype = NODE_MOD;
-        temp->type = TYPE_INT;
+        temp->type = ttLookup("int");
     }
     else if(strcmp(op, "/") == 0) {
         temp->nodetype = NODE_DIV;
-        temp->type = TYPE_INT;
+        temp->type = ttLookup("int");
     }
     else if(strcmp(op, ">") == 0) {
         temp->nodetype = NODE_GT;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else if(strcmp(op, ">=") == 0) {
         temp->nodetype = NODE_GTE;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else if(strcmp(op, "<") == 0) {
         temp->nodetype = NODE_LT;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else if(strcmp(op, "<=") == 0) {
         temp->nodetype = NODE_LTE;
-        temp->type = TYPE_BOOL;
+        temp->type = ttLookup("bool");
     }
     else {
         printf("Error: Unknown operator %s in makeOpNode\n", op);
@@ -291,10 +289,10 @@ node* makeDeclNode(node* type, node* varlist) {
     return temp;
 }
 
-node* makeTypeNode(varType type) {
+node* makeTypeNode(char* type) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_TYPE;
-    temp->type = type;
+    temp->type = ttLookup(type);
     return temp;
 }
 
@@ -332,7 +330,7 @@ node* makeAddressNode(node* var) {
 node* makeNullNode() {
     node* temp = createTreeNode();
     temp->nodetype = NODE_NULL;
-    temp->type = -1;
+    temp->type = ttLookup("null");
     return temp;
 }
 
@@ -385,8 +383,6 @@ node* makeFnCallNode(node* fnName, node* argList) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, fnName->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
-    } else {
-        temp->type = -1;
     }
     temp->left = fnName;
     temp->right = argList;
@@ -415,5 +411,50 @@ node* makeArgNode(node* expr) {
     temp->type = expr->type;
     temp->left = expr;
     temp->right = NULL;
+    return temp;
+}
+
+node* makeTypeDefNode(node* typeName, node* fieldList) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_TYPEDEF;
+    temp->left = typeName;
+    temp->right = fieldList;
+    installType(temp);
+    return temp;
+}
+
+node* makeFieldDeclNode(node* typeName, node* fieldName) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FIELDDECL;
+    temp->left = typeName;
+    temp->right = fieldName;
+    return temp;
+}
+
+node* makeInitializeNode() {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_INITIALIZE;
+    return temp;
+}
+
+node* makeFreeNode(node* arg) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FREE;
+    temp->left = arg;
+    return temp;
+}
+
+node* makeAllocNode() {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_ALLOC;
+    return temp;
+}
+
+node* makeFieldNode(node* var, node* field) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FIELD;
+    temp->varname = strdup(field->varname);
+    temp->left = var;   // Has to be evaluated recursively
+    temp->right = field;
     return temp;
 }

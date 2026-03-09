@@ -20,7 +20,8 @@ typedef struct fieldList fieldList;
 void ttInitialize();
 typeTable* ttLookup(char *name);
 typeTable* ttInstall(char *name);
-void ttAddField(char* name, char* typeName); // Installs the field in last entry of TT
+void ttAddField(char* typeName, char* name); // Installs the field in last entry of TT
 fieldList* ttFieldLookup(char* type, char* fieldName);
+void ttPrint();
 
 #endif

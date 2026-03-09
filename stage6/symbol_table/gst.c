@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../tree/tree.h"
+#include "../type_table/tt.h"
 #include "gst.h"
 
 int addr_counter = 4096;
 gst* gstRoot = NULL;
 
-gst* createGstNode(char* name, varType type, int size) {
+gst* createGstNode(char* name, typeTable* type, int size) {
     gst* newNode = (gst*) malloc(sizeof(gst));
     newNode->name = strdup(name);
     newNode->type = type;
@@ -21,7 +22,7 @@ gst* createGstNode(char* name, varType type, int size) {
     return newNode;
 }
 
-gst* gstInstall(gst* head, char* name, varType type, int size, int ptr_level) {
+gst* gstInstall(gst* head, char* name, typeTable* type, int size, int ptr_level) {
     gst* newNode = createGstNode(name, type, size);
     newNode->ptr_level = ptr_level;
     if (head == NULL) {
@@ -57,7 +58,7 @@ gst* gstLookup(gst* head, char* name) {
     return NULL;
 }
 
-void appendParam(gst* gstEntry, char* name, varType type, int ptr_level) {
+void appendParam(gst* gstEntry, char* name, typeTable* type, int ptr_level) {
     paramStruct* newParam = (paramStruct*) malloc(sizeof(paramStruct));
     newParam->name = strdup(name);
     newParam->type = type;
@@ -85,26 +86,14 @@ void printGST(gst* head) {
     printf("Global Symbol Table:\n");
     printf("Name\tType\tSize\tBinding\tRBinding\tPtr_Level\n");
     while (temp != NULL) {
-        const char* typeStr;
-        switch (temp->type) {
-            case TYPE_INT: typeStr = "INT"; break;
-            case TYPE_STR: typeStr = "STR"; break;
-            case TYPE_BOOL: typeStr = "BOOL"; break;
-            default: typeStr = "UNKNOWN"; break;
-        }
+        const char* typeStr = temp->type->name;
         printf("%s\t%s\t%d\t%d\t%d\t\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->relativeBinding, temp->ptr_level);
         if(temp->paramList) {
             printf("\tParameters:\n");
             printf("\tName\tType\tPtr_Level\n");
             paramStruct* paramTemp = temp->paramList;
             while (paramTemp != NULL) {
-                const char* paramTypeStr;
-                switch (paramTemp->type) {
-                    case TYPE_INT: paramTypeStr = "INT"; break;
-                    case TYPE_STR: paramTypeStr = "STR"; break;
-                    case TYPE_BOOL: paramTypeStr = "BOOL"; break;
-                    default: paramTypeStr = "UNKNOWN"; break;
-                }
+                const char* paramTypeStr = paramTemp->type->name;
                 printf("\t%s\t%s\t%d\n", paramTemp->name, paramTypeStr, paramTemp->ptr_level);
                 paramTemp = paramTemp->next;
             }

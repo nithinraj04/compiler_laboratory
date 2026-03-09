@@ -1,5 +1,6 @@
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
+#include "../type_table/tt.h"
 #include "utils.h"
 #include "libfuncs.h"
 #include <stdio.h>
@@ -422,7 +423,7 @@ void printAST(node* root, const char* prefix, int isLast) {
             printf("DECL\n");
             break;
         case NODE_TYPE:
-            printf("TYPE(%d)\n", root->type);
+            printf("TYPE (%s)\n", root->type->name);
             break;
         case NODE_PTR:
             printf("PTR(%s)\n", root->varname ? root->varname : "unknown");
@@ -459,6 +460,12 @@ void printAST(node* root, const char* prefix, int isLast) {
             break;
         case NODE_LDECL:
             printf("LDECL\n");
+            break;
+        case NODE_FIELDDECL:
+            printf("FIELDDECL\n");
+            break;
+        case NODE_FIELD:
+            printf("FIELD\n");
             break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);

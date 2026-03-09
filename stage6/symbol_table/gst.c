@@ -86,7 +86,8 @@ void printGST(gst* head) {
     printf("Global Symbol Table:\n");
     printf("Name\tType\tSize\tBinding\tRBinding\tPtr_Level\n");
     while (temp != NULL) {
-        const char* typeStr = temp->type->name;
+        char* typeStr = "";
+        if(temp->type) typeStr = temp->type->name;
         printf("%s\t%s\t%d\t%d\t%d\t\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->relativeBinding, temp->ptr_level);
         if(temp->paramList) {
             printf("\tParameters:\n");

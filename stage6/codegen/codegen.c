@@ -22,10 +22,11 @@ int codeGen(node* root, FILE* targetFile);
 
 int getAddr(node* varNode, FILE* targetFile) {
     gst* entry = globalLookup(gstRoot, lstRoot, varNode->varname);
-        if(entry == NULL) {
-            printf("Semantics Error: Undeclared variable '%s'\n", varNode->varname);
-            exit(1);
-        }
+    if(entry == NULL) {
+        printf("Codegen Error: Undeclared variable '%s'\n", varNode->varname);
+        exit(1);
+    }
+    varNode->type = entry->type; 
     if(entry->relativeBinding != -1) {
         int reg = getReg();
         fprintf(targetFile, "MOV R%d, BP\n", reg);
@@ -42,6 +43,18 @@ int getArrayAddr(FILE* targetFile, node* arrayNode) {
     fprintf(targetFile, "ADD R%d, R%d\n", baseAddr, indexReg);
     freeReg(); // Free indexReg
     return baseAddr;
+}
+int getFieldAddr(FILE* targetFile, node* fieldNode) {
+    if(fieldNode->nodetype != NODE_FIELD) {
+        return getAddr(fieldNode, targetFile);
+    }
+
+    int reg = getFieldAddr(targetFile, fieldNode->left);
+    typeTable* leftType = getType(fieldNode->left);
+    fieldList* field = ttFieldLookup(leftType->name, fieldNode->right->varname);
+    fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
+    fprintf(targetFile, "ADD R%d, %d\n", reg, field->fieldIndex);
+    return reg;
 }
 
 int codeGen(node* root, FILE* targetFile) {
@@ -86,23 +99,28 @@ int codeGen(node* root, FILE* targetFile) {
             return binaryOpHandler(root, targetFile);
         }
         case NODE_ASSIGN: {
-            int leftAddr = getAddr(root->left, targetFile);
             int rightReg = codeGen(root->right, targetFile);
             if(root->left->nodetype == NODE_ARRAY) {
-                int arrayReg = getArrayAddr(targetFile, root->left);
-                fprintf(targetFile, "MOV [R%d], R%d\n", arrayReg, rightReg);
-                freeReg(); // Free arrayReg
+                int leftReg = getArrayAddr(targetFile, root->left);
+                fprintf(targetFile, "MOV [R%d], R%d\n", leftReg, rightReg);
+                freeReg(); 
             }
             else if(root->left->nodetype == NODE_PTR) {
-                int reg = codeGen(root->left->right, targetFile);
-                fprintf(targetFile, "MOV [R%d], R%d\n", reg, rightReg);
+                int leftReg = codeGen(root->left->right, targetFile);
+                fprintf(targetFile, "MOV [R%d], R%d\n", leftReg, rightReg);
+                freeReg();
+            }
+            else if(root->left->nodetype == NODE_FIELD) {
+                int leftReg = getFieldAddr(targetFile, root->left);
+                fprintf(targetFile, "MOV [R%d], R%d\n", leftReg, rightReg);
                 freeReg();
             }
             else {
+                int leftAddr = getAddr(root->left, targetFile);
                 fprintf(targetFile, "MOV [R%d], R%d\n", leftAddr, rightReg);
+                freeReg();
             }
             freeReg();
-            freeReg(); 
             return -1;
         }
         case NODE_WRITE: {
@@ -120,6 +138,11 @@ int codeGen(node* root, FILE* targetFile) {
             else if(root->left->nodetype == NODE_PTR) {
                 int reg = codeGen(root->left->right, targetFile);
                 read(reg, targetFile);
+                freeReg();
+            }
+            else if(root->left->nodetype == NODE_FIELD) {
+                int fieldAddr = getFieldAddr(targetFile, root->left);
+                read(fieldAddr, targetFile);
                 freeReg();
             }
             else {
@@ -336,6 +359,36 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "PUSH R%d\n", argReg);
             freeReg();
             return -1;
+        }
+        case NODE_TYPEDEF: {
+            return -1;
+        }
+        case NODE_FIELDDECL: {
+            return -1;
+        }
+        case NODE_FIELD: {
+            int reg = getFieldAddr(targetFile, root);
+            fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
+            return reg;
+        }
+        case NODE_INITIALIZE: {
+            heapset(targetFile);
+            return -1;
+        }
+        case NODE_ALLOC: {
+            int addrReg = alloc(targetFile);
+            return addrReg;
+        }
+        case NODE_FREE: {
+            int reg = codeGen(root->left, targetFile);
+            free_(reg, targetFile);
+            freeReg();
+            return -1;
+        }
+        case NODE_NULL: {
+            int reg = getReg();
+            fprintf(targetFile, "MOV R%d, 0\n", reg);
+            return reg;
         }
         default:
             fprintf(stderr, "Error: Unknown node type %d\n", root->nodetype);

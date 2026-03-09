@@ -134,24 +134,14 @@ int binaryOpHandler(node* root, FILE* targetFile) {
     int rightReg = codeGen(root->right, targetFile);
 
     if(root->nodetype == NODE_EQ || root->nodetype == NODE_NEQ) {
-        if(root->left->type != root->right->type) {
-            printf("Error: Type mismatch in equality operation\n");
-            exit(1);
-        }
         if(root->nodetype == NODE_EQ){
             fprintf(targetFile, "EQ R%d, R%d\n", leftReg, rightReg);
         }
         else if(root->nodetype == NODE_NEQ){
             fprintf(targetFile, "NE R%d, R%d\n", leftReg, rightReg);
         }
-        root->type = root->left->type;
         freeReg();
         return leftReg;
-    }
-
-    if(root->left->type != ttLookup("int") || root->right->type != ttLookup("int")) {
-        printf("Error: Non-integer operand in binary operation\n");
-        exit(1);
     }
 
     switch(root->nodetype) {
@@ -213,30 +203,22 @@ typeTable* getType(node* root) {
     if(root == NULL) {
         return NULL;
     }
-    
-    if(root->nodetype != NODE_FIELD) {
-        return root->type;
+
+    if(root->nodetype == NODE_FIELD) {
+        typeTable* left = getType(root->left);
+        if(left == NULL || left == ttLookup("int") || left == ttLookup("str") || left == ttLookup("bool") || left == ttLookup("null")) {
+            printf("Error: Attempting to access field of non user-defined type '%s'\n", left ? left->name : "unknown");
+            exit(1);
+        }
+        fieldList* field = ttFieldLookup(left->name, root->right->varname);
+        if(field == NULL) {
+            printf("Error: No field named '%s' in user-defined type '%s'\n", root->right->varname, left->name);
+            exit(1);
+        }
+        return field->type;
     }
 
-    typeTable* left = NULL;
-
-    if(root->left->nodetype == NODE_ID) {
-        left = root->left->type;
-    }
-    else {
-        left = getType(root->left);
-    }
-
-    if(left == NULL || left == ttLookup("int") || left == ttLookup("str") || left == ttLookup("bool") || left == ttLookup("null")) {
-        printf("Error: Attempting to access field of non user-defined type '%s'\n", left ? left->name : "unknown");
-        exit(1);
-    }
-    fieldList* field = ttFieldLookup(left->name, root->right->varname);
-    if(field == NULL) {
-        printf("Error: No field named '%s' in user-defined type '%s'\n", root->right->varname, left->name);
-        exit(1);
-    }
-    return field->type;
+    return root->type;
 }
 
 labelStack* createLabelStackNode(int cond, int end) {

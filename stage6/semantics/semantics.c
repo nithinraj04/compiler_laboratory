@@ -114,7 +114,7 @@ void semantics(node* root) {
             semantics(left);
             semantics(right);
 
-            if(right->nodetype == NODE_NULL) {
+            if(right->nodetype == NODE_NULL || right->nodetype == NODE_ALLOC) {
                 typeTable* leftType = getType(left);
                 if(leftType != ttLookup("int") && leftType != ttLookup("str")) {
                     // Allowed
@@ -236,12 +236,26 @@ void semantics(node* root) {
             semantics(root->left);
             semantics(root->right);
 
+            typeTable* leftType = getType(root->left);
+            typeTable* rightType = getType(root->right);
+
+            if(root->right->nodetype == NODE_NULL) {
+                if(leftType != ttLookup("int") && leftType != ttLookup("str")){
+                    // Allowed
+                    return;
+                }
+                if(getDerefLevel(root->left) > 0) {
+                    // Allowed
+                    return;
+                }
+            }
+
             if(getDerefLevel(root->left) != getDerefLevel(root->right)) {
                 printf("Semantics Error: Dereference level mismatch in equality comparison\n");
                 exit(1);
             }
-            if(getType(root->left) != getType(root->right)) {
-                printf("Semantics Error: Type mismatch in equality comparison\n");
+            if(leftType != rightType) {
+                printf("Semantics Error: Type mismatch in equality comparison ('%s' != '%s')\n", leftType ? leftType->name : "unknown", rightType ? rightType->name : "unknown");
                 exit(1);
             }
 
@@ -262,6 +276,7 @@ void semantics(node* root) {
                getType(right) == ttLookup("int") && getDerefLevel(right) == 0
             ) {
                 // Allowed
+                root->type = ttLookup("int");
                 return;
             }
 
@@ -275,6 +290,7 @@ void semantics(node* root) {
                getType(right) == ttLookup("int") 
             ) {
                 // Allowed (pointer arithmetic)
+                root->type = left->type;
                 return;
             }
 
@@ -283,6 +299,7 @@ void semantics(node* root) {
                getType(left) == ttLookup("int") 
             ) {
                 // Allowed (pointer arithmetic)
+                root->type = right->type;
                 return;
             }
 
@@ -292,7 +309,26 @@ void semantics(node* root) {
 
         case NODE_MUL:
         case NODE_DIV:
-        case NODE_MOD: 
+        case NODE_MOD: {
+            node* left = root->left;
+            node* right = root->right;
+
+            semantics(left);
+            semantics(right);
+
+            if(
+               getType(left) == ttLookup("int") && getDerefLevel(left) == 0
+                &&
+               getType(right) == ttLookup("int") && getDerefLevel(right) == 0
+            ) {
+                // Allowed
+                root->type = ttLookup("int");
+                return;
+            }
+
+            printf("Semantics Error: Invalid operands for operator '%s'\n", root->nodetype == NODE_MUL ? "*" : (root->nodetype == NODE_DIV ? "/" : "%"));
+            exit(1);
+        }
         case NODE_GT:
         case NODE_GTE:
         case NODE_LT:
@@ -309,6 +345,7 @@ void semantics(node* root) {
                getType(right) == ttLookup("int") && getDerefLevel(right) == 0
             ) {
                 // Allowed
+                root->type = ttLookup("bool");
                 return;
             }
 
@@ -342,6 +379,10 @@ void semantics(node* root) {
                 exit(1);
             }
 
+            return;
+        }
+
+        case NODE_FNDECL: {
             return;
         }
 

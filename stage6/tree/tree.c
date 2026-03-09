@@ -285,7 +285,7 @@ node* makeDeclNode(node* type, node* varlist) {
     temp->nodetype = NODE_DECL;
     temp->left = type;
     temp->right = varlist;
-    assignType(varlist, type->type);
+    assignType(varlist, ttLookup(type->varname));
     return temp;
 }
 
@@ -348,7 +348,7 @@ node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, n
     temp->nodetype = NODE_FNDEF;
     temp->varname = strdup(name->varname);
     temp->gstEntry = gstLookup(gstRoot, name->varname);
-    temp->type = type->type;
+    temp->type = ttLookup(type->varname);
     temp->left = paramList;
     temp->right = makeConnectorNode(lDeclBlock, body);
     // free(type);
@@ -360,7 +360,7 @@ node* makeParamNode(node* type, node* var) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_PARAM;
     temp->varname = strdup(var->varname);
-    temp->type = type->type;
+    temp->type = ttLookup(type->varname);
     temp->left = NULL;
     temp->right = var;
     // free(type);

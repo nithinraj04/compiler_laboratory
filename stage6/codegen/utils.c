@@ -83,7 +83,6 @@ int getDeclaredPtrLevel(node* root) {
         level++;
         current = current->right;
     }
-    printf("Level: %d\n", level);
     return level;
 }
 

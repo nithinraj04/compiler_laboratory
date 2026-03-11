@@ -80,6 +80,11 @@ void ttAddField(char* typeName, char* name) {
     newField->fieldIndex = ttEntry->size;
     ttEntry->size++;
 
+    if(ttEntry->size > 8) {
+        printf("Error: Type '%s' cannot have more than 8 fields\n", ttEntry->name);
+        exit(1);
+    }
+
     if(ttEntry->fields == NULL) {
         ttEntry->fields = newField;
         return;

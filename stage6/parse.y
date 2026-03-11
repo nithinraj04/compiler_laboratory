@@ -237,6 +237,7 @@ mainBlock : INT MAIN '(' ')' '{' lDeclBlock fBody '}'   { $$ = makeMainNode($6, 
 
 void yyerror(const char *s) {
     fprintf(stderr, "Error: %s at line %d\n", s, yylineno);
+    exit(1);
 }
 
 int main() {
@@ -257,8 +258,8 @@ int main() {
     fprintf(targetFile, "0\n2056\n0\n0\n0\n0\n0\n0\n");
     fprintf(targetFile, "BRKP\n");
     fprintf(targetFile, "MOV SP, %d\n", getSP());
-    fprintf(targetFile, "PUSH R0\n");
-    fprintf(targetFile, "PUSH R0\n");
+    // fprintf(targetFile, "PUSH R0\n");
+    // fprintf(targetFile, "PUSH R0\n");
     fprintf(targetFile, "CALL M0\n");
     codeGen(root, targetFile);
 

@@ -351,8 +351,8 @@ node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, n
     temp->type = ttLookup(type->varname);
     temp->left = paramList;
     temp->right = makeConnectorNode(lDeclBlock, body);
-    // free(type);
-    // free(name);
+    free(type);
+    free(name);
     return temp;
 }
 

@@ -1,0 +1,37 @@
+type 
+  mytype {
+    int a;
+  }
+  bst {
+    int a;
+    bst nxt;
+  }
+endtype
+
+decl
+  mytype x, *y, z[10];
+  bst b;
+enddecl
+
+int main() {
+  begin
+    initialize();
+    x = alloc();
+    y = alloc();
+    z = alloc();
+    x.a = 5;
+    y = &x;
+    *y.a = 6;
+    write(*y);
+    z[0].a = 100;
+    write(z[0].a);
+
+    b = alloc();
+    b.nxt = alloc();
+
+    b.nxt.a = 10;
+    write(b.nxt.a);
+
+    return 0;
+  end
+}

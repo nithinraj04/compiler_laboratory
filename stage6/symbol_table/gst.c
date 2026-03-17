@@ -23,6 +23,11 @@ gst* createGstNode(char* name, typeTable* type, int size) {
 }
 
 gst* gstInstall(gst* head, char* name, typeTable* type, int size, int ptr_level) {
+    if(ttLookup(name) != NULL) {
+        printf("Error: Cannot declare a variable with name '%s' as there exist a type with same name\n", name);
+        exit(1);
+    }
+    
     gst* newNode = createGstNode(name, type, size);
     newNode->ptr_level = ptr_level;
     if (head == NULL) {

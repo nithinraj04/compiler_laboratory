@@ -216,10 +216,6 @@ void semantics(node* root) {
             if(root->type == NULL) {
                 root->type = entry->type;
             }
-            if(entry->type != ttLookup("int") && entry->type != ttLookup("str")) {
-                printf("Semantics Error: Pointers to type '%s' not supported\n", entry->type->name);
-                exit(1);
-            }
             if(globalLookup(gstRoot, lstRoot, root->right->varname) == NULL) {
                 printf("Semantics Error: Undeclared pointer variable '%s'\n", root->right->varname);
                 exit(1);
@@ -427,6 +423,16 @@ void semantics(node* root) {
         }
 
         case NODE_FIELD: {
+            if(root->left->nodetype != NODE_FIELD) {
+                if(getDerefLevel(root->left) != 0) {
+                    printf("Semantics Error: Cannot access field of pointer variable '%s' without dereferencing\n", root->left->varname);
+                    exit(1);
+                }
+                if(root->left->nodetype == NODE_ADDR_OF) {
+                    printf("Semantics Error: Cannot access field of address of variable '%s'\n", root->left->right->varname);
+                    exit(1);
+                }
+            }
             semantics(root->left);
             return;
         }
@@ -461,10 +467,10 @@ void semantics(node* root) {
         case NODE_DECL:
         case NODE_LDECL: {
             if(ttLookup(root->left->varname) == NULL) {
-                printf("Semantics Error: Undeclared type '%s' in local declaration\n", root->left->varname);
+                printf("Semantics Error: Undeclared type '%s' used in declaration\n", root->left->varname);
                 exit(1);
             }
-            semantics(root->right); // process the varlist
+            // semantics(root->right); // process the varlist
             return;
         }
 

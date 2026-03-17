@@ -21,6 +21,11 @@ gst* createLstNode(char* name, typeTable* type) {
 }
 
 gst* lstInstall(gst* head, char* name, typeTable* type, int ptr_level) {
+    if(ttLookup(name) != NULL) {
+        printf("Error: Cannot declare a variable with name '%s' as there exist a type with same name\n", name);
+        exit(1);
+    }
+    
     gst* newNode = createLstNode(name, type);
     newNode->ptr_level = ptr_level;
 

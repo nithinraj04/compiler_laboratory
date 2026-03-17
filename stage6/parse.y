@@ -204,8 +204,7 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | NULLVAL               { $$ = makeNullNode(); }
      ;
 
-FIELD : ID '.' ID     { $$ = makeFieldNode($1, $3); }
-      | FIELD '.' ID  { $$ = makeFieldNode($1, $3); }
+FIELD : identifier '.' ID     { $$ = makeFieldNode($1, $3); }
       ;
 
 argList : argList ',' arg   { $$ = makeConnectorNode($1, $3); }

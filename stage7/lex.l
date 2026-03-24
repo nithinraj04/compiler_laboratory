@@ -41,6 +41,8 @@ digit [0-9]
 "initialize" { return INITIALIZE; }
 "alloc"   { return ALLOC; }
 "free"    { return FREE; }
+"class"   { return CLASS; }
+"endclass" { return ENDCLASS; }
 [a-zA-Z][a-zA-Z0-9]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "."      { return '.'; }
 "+"      { return '+'; }

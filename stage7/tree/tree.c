@@ -4,6 +4,7 @@
 #include "tree.h"
 #include "../codegen/utils.h"
 #include "../type_table/tt.h"
+#include "../class_table/ct.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
@@ -303,7 +304,6 @@ node* makePtrNode(node* ptrTo) {
     temp->type = ptrTo->type;
     if(ptrTo->gstEntry) {
         temp->gstEntry = ptrTo->gstEntry;
-        temp->varname = ptrTo->varname;
         // Level of PTR would have already been updated in decl section
         // Level of all the child PTR nodes are irrelevant here.
     }

@@ -26,13 +26,14 @@
 
 %token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK 
 %token <p> CONTINUE BRKP DECL ENDDECL INT STR STRVAL NULLVAL RETURN MAIN TYPE ENDTYPE INITIALIZE 
-%token <p> FREE ALLOC
+%token <p> FREE ALLOC CLASS ENDCLASS
 
 %type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt 
 %type <p> gDeclBlock gDeclList gDecl gVarList identifier gVar index ptr fDefBlock mainBlock
 %type <p> paramList param fDef lDeclBlock lDeclList lDecl lVarList lVar fBody retStmt argList arg
-%type <p> typeDefBlock typeDefList typeDef typeName fieldDeclList fieldDecl FIELD initializeStmt
-%type <p> freeStmt
+%type <p> typeDefBlock typeDefList typeDef typeName fieldDeclList fieldDecl field initializeStmt
+%type <p> freeStmt classDefBlock classDefList classDef cName cFieldList cField cMethodList cMethod
+%type <p> cMethodDefList fieldFn fCallStmt
 
 %nonassoc '<' '>' GE LE EQ NE
 %left '+' '-'
@@ -41,14 +42,29 @@
 
 %%
 
-start : typeDefBlock gDeclBlock fDefBlock mainBlock   { root = makeConnectorNode(makeConnectorNode($1, $2), makeConnectorNode($3, $4)); }
-      | typeDefBlock gDeclBlock mainBlock             { root = makeConnectorNode($1, makeConnectorNode($2, $3)); }
-      | typeDefBlock mainBlock                        { root = makeConnectorNode($1, $2); }
+start : typeDefBlock classDefBlock gDeclBlock fDefBlock mainBlock   
+        { 
+            root = makeConnectorNode(
+                makeConnectorNode(
+                    makeConnectorNode($1, $2), 
+                    makeConnectorNode($3, $4)
+                ), 
+            $5
+            ); 
+        }
+      | typeDefBlock classDefBlock gDeclBlock mainBlock
+        { 
+            root = makeConnectorNode(
+                makeConnectorNode($1, $2), 
+                makeConnectorNode($3, $4)
+            ); 
+        }
       ;
 
-// -------------------------------------------------------------
+// ----------------------TYPE DEFINITION---------------------------------------
 
 typeDefBlock : TYPE typeDefList ENDTYPE { $$ = $2; }
+             | TYPE ENDTYPE             { $$ = NULL; }
              |                          { $$ = NULL; }
              ;
 
@@ -71,10 +87,45 @@ typeName : INT   { $$ = makeLeafIdNode("int"); }  // Create makeTypeNode ig?
          | ID    { $$ = $1; }
          ;
 
-// -------------------------------------------------------------
+// -----------------------CLASS DEFINITION--------------------------------------
+
+classDefBlock : CLASS classDefList ENDCLASS { $$ = $2; }
+              | CLASS ENDCLASS              { $$ = NULL; }
+              |                             { $$ = NULL; }
+
+classDefList : classDefList classDef   { $$ = makeConnectorNode($1, $2); }
+             | classDef               { $$ = $1; }
+             ;
+
+classDef : cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { /* TODO */ }
+         ;
+
+cName : ID    { $$ = $1; }
+
+cFieldList : cFieldList cField   { $$ = makeConnectorNode($1, $2); }
+           | cField              { $$ = $1; }
+           ;
+
+cField : typeName ID ';' { /* TODO */ }
+       ;
+
+cMethodList : cMethodList cMethod   { $$ = makeConnectorNode($1, $2); }
+            | cMethod               { $$ = $1; }
+            ;
+
+cMethod : typeName ID '(' paramList ')' ';' { /* TODO */ }
+        | typeName ID '(' ')' ';' { /* TODO */ }
+        ;
+
+cMethodDefList : fDefBlock { /* TODO */ }
+               |           { $$ = NULL; }
+               ;
+
+// --------------------------GLOBAL DECLARATIONS-----------------------------------
 
 gDeclBlock : DECL gDeclList ENDDECL  { $$ = $2; }
-           | DECL ENDDECL        { $$ = NULL; }
+           | DECL ENDDECL            { $$ = NULL; }
+           | /* empty */             { $$ = NULL; }
            ;
 
 gDeclList : gDeclList gDecl    { $$ = makeConnectorNode($1, $2); }
@@ -103,7 +154,7 @@ param : typeName ID   { $$ = makeParamNode($1, $2); }
       | typeName ptr  { $$ = makeParamNode($1, $2); }  
       ;
 
-// ------------------------------------------------------------
+// --------------------------FUNCTION DEFINITIONS-----------------------------------
 
 fDefBlock : fDefBlock fDef    { $$ = makeConnectorNode($1, $2); }
           | fDef              { $$ = $1; }
@@ -150,12 +201,15 @@ stmt : inputStmt             { $$ = $1; }
      | ifStmt                { $$ = $1; }
      | whileStmt             { $$ = $1; }
      | doWhileStmt           { $$ = $1; }
+     | fCallStmt             { $$ = $1; }
+     | fieldFn ';'           { $$ = $1; }
      | BREAK ';'             { $$ = makeBreakNode(); }
      | CONTINUE ';'          { $$ = makeContinueNode(); }
      | BRKP ';'              { $$ = makeBrkpNode(); }
-     | ID '(' argList ')' ';' { $$ = makeFnCallNode($1, $3); }
-     | ID '(' ')' ';'         { $$ = makeFnCallNode($1, NULL); }
      ;
+
+fCallStmt : ID '(' argList ')' ';' { $$ = makeFnCallNode($1, $3); }
+          | ID '(' ')' ';'         { $$ = makeFnCallNode($1, NULL); }
 
 inputStmt : READ '(' identifier ')' ';'    { $$ = makeReadNode($3); }
           ;
@@ -167,7 +221,7 @@ initializeStmt : INITIALIZE '(' ')' ';' { $$ = makeInitializeNode(); }
               ;
 
 freeStmt : FREE '(' ID ')' ';' { $$ = makeFreeNode($3); }
-         | FREE '(' FIELD ')' ';' { $$ = makeFreeNode($3); }
+         | FREE '(' field ')' ';' { $$ = makeFreeNode($3); }
          ;
 
 assignStmt : identifier '=' expr ';'        { $$ = makeOpNode("=", $1, $3); }
@@ -190,22 +244,26 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | expr '/' expr         { $$ = makeOpNode("/", $1, $3); }
      | expr '<' expr         { $$ = makeOpNode("<", $1, $3); }
      | expr '>' expr         { $$ = makeOpNode(">", $1, $3); }
-     | expr LE expr      { $$ = makeOpNode("<=", $1, $3); }
-     | expr GE expr      { $$ = makeOpNode(">=", $1, $3); }
-     | expr EQ expr      { $$ = makeOpNode("==", $1, $3); }
-     | expr NE expr      { $$ = makeOpNode("!=", $1, $3); }
+     | expr LE expr          { $$ = makeOpNode("<=", $1, $3); }
+     | expr GE expr          { $$ = makeOpNode(">=", $1, $3); }
+     | expr EQ expr          { $$ = makeOpNode("==", $1, $3); }
+     | expr NE expr          { $$ = makeOpNode("!=", $1, $3); }
      | '(' expr ')'          { $$ = $2; }
      | ALLOC '(' ')'         { $$ = makeAllocNode(); }
-     | ID '(' argList ')'    { $$ = makeFnCallNode($1, $3); }
-     | ID '(' ')'            { $$ = makeFnCallNode($1, NULL); }
+     | fCallStmt             { $$ = $1; }
      | NUM                   { $$ = $1; }
      | STRVAL                { $$ = $1; }
      | identifier            { $$ = $1; }
      | NULLVAL               { $$ = makeNullNode(); }
+     | fieldFn               { $$ = $1; }
      ;
 
-FIELD : identifier '.' ID     { $$ = makeFieldNode($1, $3); }
+field : identifier '.' ID     { $$ = makeFieldNode($1, $3); }
       ;
+
+fieldFn : identifier '.' ID '(' argList ')' { /* TODO */ }
+        | identifier '.' ID '(' ')'         { /* TODO */ }
+        ; 
 
 argList : argList ',' arg   { $$ = makeConnectorNode($1, $3); }
         | arg               { $$ = $1; }
@@ -218,7 +276,7 @@ identifier : ID    { $$ = $1; }
            | ID '[' index ']'   { $$ = makeArrayNode($1, $3); }
            | '&' ID             { $$ = makeAddressNode($2); }
            | ptr  %prec PTR     { $$ = $1; }
-           | FIELD              { $$ = $1; }
+           | field              { $$ = $1; }
            ;
 
 ptr : '*' ptr   { $$ = makePtrNode($2); }
@@ -227,7 +285,7 @@ ptr : '*' ptr   { $$ = makePtrNode($2); }
 
 index : expr    { $$ = $1; }
 
-// -------------------------------------------------------------
+// --------------------------MAIN BLOCK-----------------------------------
 
 mainBlock : INT MAIN '(' ')' '{' lDeclBlock fBody '}'   { $$ = makeMainNode($6, $7); }
           ;

@@ -5,20 +5,20 @@
 
 typeTable *ttHead = NULL;
 
-typeTable* createTypeTableNode() {
+typeTable* createTypeTableNode(char *name) {
     typeTable *temp = (typeTable*)malloc(sizeof(typeTable));
-    temp->name = NULL;
+    temp->name = strdup(name);
     temp->size = 0;
     temp->fields = NULL;
     temp->next = NULL;
     return temp;
 }
 
-fieldList* createFieldListNode() {
+fieldList* createFieldListNode(char* name, char *typeName) {
     fieldList *temp = (fieldList*)malloc(sizeof(fieldList));
-    temp->name = NULL;
+    temp->name = strdup(name);
     temp->fieldIndex = 0;
-    temp->type = NULL;
+    temp->type = ttLookup(typeName);
     temp->next = NULL;
     return temp;
 }
@@ -31,8 +31,7 @@ void ttInitialize() {
 }
 
 typeTable* ttInstall(char *name) {
-    typeTable *temp = createTypeTableNode();
-    temp->name = strdup(name);
+    typeTable *temp = createTypeTableNode(name);
     if(ttHead == NULL) {
         ttHead = temp;
         return temp;
@@ -70,9 +69,7 @@ void ttAddField(char* typeName, char* name) {
         ttEntry = ttEntry->next;
     }
 
-    fieldList *newField = createFieldListNode();
-    newField->name = strdup(name);
-    newField->type = ttLookup(typeName);
+    fieldList *newField = createFieldListNode(name, typeName);
     if(newField->type == NULL) {
         printf("Error: Type '%s' not found in type table\n", typeName);
         exit(1);

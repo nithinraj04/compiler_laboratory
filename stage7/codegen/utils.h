@@ -27,7 +27,6 @@ void pushRegStack();
 void popRegStack();
 int getDeclaredPtrLevel(node* root);
 typeTable* getType(node* root);
-void installType(node* root);
 
 extern int regCount;
 extern int label;

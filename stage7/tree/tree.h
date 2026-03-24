@@ -53,26 +53,25 @@ typedef enum {
     NODE_INITIALIZE,
     NODE_FREE,
     NODE_ALLOC,
+    NODE_FIELDFN,
+    NODE_CFNDEF,
+    NODE_CMETHOD,
+    NODE_CFIELD,
+    NODE_CDEF
 } nodeType;
-
-enum varType {
-    TYPE_INT,
-    TYPE_STR,
-    TYPE_BOOL
-};
 
 typedef enum varType varType; // Forward declaration of varType for gst.h
 
 #include "../symbol_table/gst.h"
 
 typedef struct node{
-    int val;        // value of a number for NUM nodes.
-    char* strval;    // value of a string for STR nodes.
-    struct typeTable* type;       // type of variable
-    char* varname;  // name of a variable for ID nodes
-    nodeType nodetype;   // information about non-leaf nodes - read/write/connector/+/* etc.
-    struct gst* gstEntry; // pointer to GST entry for variables
-    struct node *left,*right;  // left and right branches
+    int val;        
+    char* strval;    
+    struct typeTable* type; 
+    char* varname;  
+    nodeType nodetype;   
+    struct gst* gstEntry;
+    struct node *left, *right; 
 } node;
 
 int getDerefLevel(node* root);
@@ -111,5 +110,10 @@ node* makeInitializeNode();
 node* makeFreeNode(node* arg);
 node* makeAllocNode();
 node* makeFieldNode(node* var, node* field);
+node* makeFieldFnNode(node* type, node* name, node* args);
+node* makeClassFnDefNode(node* fnDef);
+node* makeClassMethodNode(node* type, node* name, node* params);
+node* makeClassFieldNode(node* type, node* name);
+node* makeClassDefNode(node* name, node* fieldList, node* methodList, node* methodDefList);
 
 #endif

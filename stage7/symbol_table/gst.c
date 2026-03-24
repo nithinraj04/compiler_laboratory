@@ -8,40 +8,42 @@
 int addr_counter = 4096;
 gst* gstRoot = NULL;
 
-gst* createGstNode(char* name, typeTable* type, int size) {
-    gst* newNode = (gst*) malloc(sizeof(gst));
-    newNode->name = strdup(name);
-    newNode->type = type;
-    newNode->size = size;
-    newNode->binding = -1;
-    newNode->relativeBinding = -1;
-    newNode->ptr_level = 0;
-    newNode->paramList = NULL;
-    newNode->fLabel = -1;
-    newNode->next = NULL;
-    return newNode;
+gst* createGstNode(char* name, typeTable* type, classTable* cType, int size) {
+    gst* temp = (gst*) malloc(sizeof(gst));
+    temp->name = strdup(name);
+    temp->type = type;
+    temp->cType = cType;
+    temp->size = size;
+    temp->binding = -1;
+    temp->relativeBinding = -1;
+    temp->ptr_level = 0;
+    temp->paramList = NULL;
+    temp->fLabel = -1;
+    temp->next = NULL;
+    return temp;
 }
 
-gst* gstInstall(gst* head, char* name, typeTable* type, int size, int ptr_level) {
+void gstInstall(char* name, typeTable* type, classTable *cType, int size, int ptr_level) {
     if(ttLookup(name) != NULL) {
         printf("Error: Cannot declare a variable with name '%s' as there exist a type with same name\n", name);
         exit(1);
     }
     
-    gst* newNode = createGstNode(name, type, size);
+    gst* newNode = createGstNode(name, type, cType, size);
     newNode->ptr_level = ptr_level;
-    if (head == NULL) {
+    if (gstRoot == NULL) {
         newNode->binding = reserveSpace(size);
-        return newNode;
+        gstRoot = newNode;
+        return;
     }
-    gst* temp = head;
+    gst* temp = gstRoot;
     gst* prev = NULL;
     while (temp != NULL) {
         prev = temp;
         if(strcmp(temp->name, name) == 0) {
             // Variable already exists
-            free(newNode->name);
-            free(newNode);
+            free(temp->name);
+            free(temp);
             printf("Error: Redeclaration of variable '%s'.\n", name);
             exit(1);
         }
@@ -49,11 +51,11 @@ gst* gstInstall(gst* head, char* name, typeTable* type, int size, int ptr_level)
     }
     newNode->binding = reserveSpace(size);
     prev->next = newNode;
-    return head;
+    return;
 }
 
-gst* gstLookup(gst* head, char* name) {
-    gst* temp = head;
+gst* gstLookup(char* name) {
+    gst* temp = gstRoot;
     while (temp != NULL) {
         if (strcmp(temp->name, name) == 0) {
             return temp;
@@ -63,10 +65,11 @@ gst* gstLookup(gst* head, char* name) {
     return NULL;
 }
 
-void appendParam(gst* gstEntry, char* name, typeTable* type, int ptr_level) {
+void appendParam(gst* gstEntry, char* name, typeTable* type, classTable *cType, int ptr_level) {
     paramStruct* newParam = (paramStruct*) malloc(sizeof(paramStruct));
     newParam->name = strdup(name);
     newParam->type = type;
+    newParam->cType = cType;
     newParam->ptr_level = ptr_level;
     newParam->next = NULL;
 

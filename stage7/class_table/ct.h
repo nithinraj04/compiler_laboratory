@@ -47,6 +47,7 @@ void ctAddMethod(char* name, char* returnType);     // Installs the method in la
 void ctAddMethodParam(char* name, char* typeName);  // Adds param to the last added method
 cFieldList* ctFieldLookup(char* className, char* fieldName);
 cMethodList* ctMethodLookup(char* className, char* methodName);
+classTable* getLastClass();
 void ctPrint();
 
 

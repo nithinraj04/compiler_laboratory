@@ -3,11 +3,13 @@
 
 #include "lst.h"
 
-typedef typeTable typeTable; // Forward declaration of typeTable from tree.h
+typedef struct typeTable typeTable; // Forward declaration of typeTable from tt.h
+typedef struct classTable classTable; // Forward declaration of classTable from ct.h
 
 typedef struct paramStruct {
     char* name;
     typeTable* type;
+    classTable* cType;
     int ptr_level;
     struct paramStruct* next;
 } paramStruct;
@@ -15,6 +17,7 @@ typedef struct paramStruct {
 typedef struct gst {
     char* name;       // name of the variable
     typeTable* type;  // type of the variable
+    classTable* cType;
     int size;         // size of the type of the variable
     int binding;      // stores the static memory address allocated to the variable
     int relativeBinding;
@@ -24,9 +27,9 @@ typedef struct gst {
     struct gst *next;
 } gst;
 
-gst* gstLookup(gst* head, char* name);
-gst* gstInstall(gst* head, char* name, typeTable* type, int size, int ptr_level);
-void appendParam(gst* gstEntry, char* name, typeTable* type, int ptr_level);
+gst* gstLookup(char* name);
+void gstInstall(char* name, typeTable* type, classTable* cType, int size, int ptr_level);
+void appendParam(gst* gstEntry, char* name, typeTable* type, classTable* cType, int ptr_level);
 void printGST(gst* head);
 int getSP();
 int reserveSpace(int size);

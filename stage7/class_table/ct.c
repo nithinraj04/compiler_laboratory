@@ -231,3 +231,13 @@ cMethodList* ctMethodLookup(char* className, char* methodName) {
 
     return NULL;
 }
+
+classTable* getLastClass() {
+    if(ctRoot == NULL) return NULL;
+
+    classTable *root = ctRoot;
+    while(root->next != NULL) {
+        root = root->next;
+    }
+    return root;
+}

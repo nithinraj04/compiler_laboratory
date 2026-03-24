@@ -258,7 +258,7 @@ int codeGen(node* root, FILE* targetFile) {
 
             struct paramStruct* params = root->gstEntry->paramList;
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->ptr_level);
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
             bindParams(lstRoot); // assign bindings to parameters

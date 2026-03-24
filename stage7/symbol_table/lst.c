@@ -8,10 +8,11 @@
 gst* lstRoot = NULL;
 int localBindingCounter = 1;
 
-gst* createLstNode(char* name, typeTable* type) {
+gst* createLstNode(char* name, typeTable* type, classTable* cType) {
     gst* newNode = (gst*) malloc(sizeof(gst));
     newNode->name = strdup(name);
     newNode->type = type;
+    newNode->cType = cType;
     newNode->size = 1;
     newNode->binding = -1;
     newNode->paramList = NULL;
@@ -20,13 +21,13 @@ gst* createLstNode(char* name, typeTable* type) {
     return newNode;
 }
 
-gst* lstInstall(gst* head, char* name, typeTable* type, int ptr_level) {
+gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int ptr_level) {
     if(ttLookup(name) != NULL) {
         printf("Error: Cannot declare a variable with name '%s' as there exist a type with same name\n", name);
         exit(1);
     }
     
-    gst* newNode = createLstNode(name, type);
+    gst* newNode = createLstNode(name, type, cType);
     newNode->ptr_level = ptr_level;
 
     if (head == NULL) {
@@ -67,7 +68,7 @@ gst* globalLookup(gst* gstHead, gst* lstHead, char* name) {
     if(temp) {
         return temp;
     }
-    return gstLookup(gstHead, name);
+    return gstLookup(name);
 }
 
 void freeLst(gst* head) {

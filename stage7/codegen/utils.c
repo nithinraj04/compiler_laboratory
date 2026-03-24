@@ -2,6 +2,7 @@
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
 #include "../type_table/tt.h"
+#include "../class_table/ct.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -86,7 +87,7 @@ int getDeclaredPtrLevel(node* root) {
     return level;
 }
 
-void assignTypesLocal(node* root, typeTable* type, gst** lst, struct paramStruct* paramList) {
+void assignTypesLocal(node* root, typeTable *type, classTable *cType, gst** lst, struct paramStruct* paramList) {
     if(root == NULL) {
         return;
     }
@@ -94,7 +95,7 @@ void assignTypesLocal(node* root, typeTable* type, gst** lst, struct paramStruct
     if(root->nodetype == NODE_ID) {
         char* varname = root->varname;
         int ptr_level = 0;
-        *lst = lstInstall(*lst, varname, type, ptr_level);
+        *lst = lstInstall(*lst, varname, type, cType, ptr_level);
         root->type = type;
         return;
     }
@@ -102,13 +103,13 @@ void assignTypesLocal(node* root, typeTable* type, gst** lst, struct paramStruct
     if(root->nodetype == NODE_PTR) {
         char* varname = root->varname;
         int ptr_level = getDeclaredPtrLevel(root);
-        *lst = lstInstall(*lst, varname, type, ptr_level);
+        *lst = lstInstall(*lst, varname, type, cType, ptr_level);
         root->type = type;
         return;
     }
 
-    assignTypesLocal(root->left, type, lst, paramList);
-    assignTypesLocal(root->right, type, lst, paramList);
+    assignTypesLocal(root->left, type, cType, lst, paramList);
+    assignTypesLocal(root->right, type, cType, lst, paramList);
 }
 
 void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
@@ -116,11 +117,12 @@ void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
 
     if(root->nodetype == NODE_LDECL) {
         typeTable* type = ttLookup(root->left->varname);
+        classTable* cType = ctLookup(root->left->varname);
         if(type == NULL) {
             printf("Error: Undeclared type '%s' in local declaration\n", root->left->varname);
             exit(1);
         }
-        assignTypesLocal(root->right, type, lst, paramList);
+        assignTypesLocal(root->right, type, cType, lst, paramList);
         return;
     }
 
@@ -176,26 +178,6 @@ int binaryOpHandler(node* root, FILE* targetFile) {
     }
     freeReg();
     return leftReg;
-}
-
-void installType(node* root) {
-    if(root == NULL) {
-        return;
-    }
-
-    if(root->nodetype == NODE_TYPEDEF) {
-        ttInstall(root->left->varname);
-        installType(root->right);
-        return;
-    }
-
-    if(root->nodetype == NODE_FIELDDECL) {
-        ttAddField(root->left->varname, root->right->varname);
-        return;
-    }
-
-    installType(root->left);
-    installType(root->right);
 }
 
 typeTable* getType(node* root) {

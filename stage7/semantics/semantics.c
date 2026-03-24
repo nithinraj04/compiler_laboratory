@@ -386,7 +386,7 @@ void semantics(node* root) {
             gst* gstEntry = root->gstEntry;
             node* paramList = root->left;
 
-            if(!gstLookup(gstRoot, root->varname)) {
+            if(!gstLookup(root->varname)) {
                 printf("Semantics Error: Function '%s' not declared\n", root->varname);
                 exit(1);
             }
@@ -406,7 +406,7 @@ void semantics(node* root) {
             // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
             params = gstEntry->paramList; // reset params pointer to head of list
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->ptr_level);
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
             bindParams(lstRoot); // assign bindings to parameters

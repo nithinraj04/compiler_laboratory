@@ -2,70 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tree.h"
+#include "treeUtils.h"
 #include "../codegen/utils.h"
 #include "../type_table/tt.h"
 #include "../class_table/ct.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
-
-void enterParamsList(node* root, gst* gstEntry) {
-    if(root == NULL) return;
-
-    if(root->nodetype == NODE_PARAM) {
-        int ptr_level = getDeclaredPtrLevel(root->right);
-        appendParam(gstEntry, root->varname, root->type, ptr_level);
-        return;
-    }
-    enterParamsList(root->left, gstEntry);
-    enterParamsList(root->right, gstEntry);
-}
-
-void assignType(node* root, typeTable* type) {
-    if(root == NULL) {
-        return;
-    }
-    if(root->nodetype == NODE_ID) {
-        int size = 1;
-        char* varname = root->varname;
-
-        gstRoot = gstInstall(gstRoot, varname, type, size, 0);
-        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
-        root->type = type;
-        return;
-    }
-    if(root->nodetype == NODE_ARRAY) {
-        // Right node is guaranteed to be NUM due to grammar
-        int size = root->right->val;
-        char* varname = root->varname;
-
-        gstRoot = gstInstall(gstRoot, varname, type, size, 0);
-        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
-        root->left->gstEntry = root->gstEntry; 
-        root->type = type;
-        return; // You don't want to assign type to the ID child.
-    }
-    if(root->nodetype == NODE_PTR) {
-        // Right node is the type being pointed to
-        assignType(root->right, type);
-        root->varname = root->right->varname; 
-        root->gstEntry = root->right->gstEntry;
-        root->gstEntry->ptr_level++;
-        root->type = type;
-        return;
-    }
-    if(root->nodetype == NODE_FNDECL) {
-        // Left node is the return type
-        assignType(root->left, type);
-        root->varname = root->left->varname; 
-        root->gstEntry = root->left->gstEntry;
-        root->type = type;
-        enterParamsList(root->right, root->gstEntry);
-        return;
-    }
-    assignType(root->left, type);
-    assignType(root->right, type);
-}
 
 node* createTreeNode() {
     node* temp = (node*) malloc(sizeof(node));
@@ -286,7 +229,7 @@ node* makeDeclNode(node* type, node* varlist) {
     temp->nodetype = NODE_DECL;
     temp->left = type;
     temp->right = varlist;
-    assignType(varlist, ttLookup(type->varname));
+    assignType(varlist, ttLookup(type->varname), ctLookup(type->varname));
     return temp;
 }
 
@@ -347,7 +290,7 @@ node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, n
     node* temp = createTreeNode();
     temp->nodetype = NODE_FNDEF;
     temp->varname = strdup(name->varname);
-    temp->gstEntry = gstLookup(gstRoot, name->varname);
+    temp->gstEntry = gstLookup(name->varname);
     temp->type = ttLookup(type->varname);
     temp->left = paramList;
     temp->right = makeConnectorNode(lDeclBlock, body);
@@ -361,9 +304,8 @@ node* makeParamNode(node* type, node* var) {
     temp->nodetype = NODE_PARAM;
     temp->varname = strdup(var->varname);
     temp->type = ttLookup(type->varname);
-    temp->left = NULL;
+    temp->left = type;
     temp->right = var;
-    // free(type);
     return temp;
 }
 
@@ -456,5 +398,55 @@ node* makeFieldNode(node* var, node* field) {
     temp->varname = strdup(field->varname);
     temp->left = var;   // Has to be evaluated recursively
     temp->right = field;
+    return temp;
+}
+
+node* makeFieldFnNode(node* type, node* name, node* args) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_FIELDFN;
+    temp->varname = strdup(name->varname);
+    temp->left = makeConnectorNode(name, type);
+    temp->right = args;
+    return temp;
+}
+
+node* makeClassFnDefNode(node* root) {
+    if(root == NULL) return NULL;
+
+    if(root->nodetype == NODE_FNDEF) {
+        root->nodetype = NODE_CFNDEF;
+        return root;
+    }
+
+    makeClassFnDefNode(root->left);
+    makeClassFnDefNode(root->right);
+    return root;
+}
+
+node* makeClassMethodNode(node* type, node* name, node* params) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_CMETHOD;
+    temp->varname = strdup(name->varname);
+    temp->left = type;
+    temp->right = params;
+    return temp;
+}
+
+node* makeClassFieldNode(node* type, node* name) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_CFIELD;
+    temp->varname = strdup(name->varname);
+    temp->left = type;
+    temp->right = name;
+    return temp;
+}
+
+node* makeClassDefNode(node* name, node* fieldList, node* methodList, node* methodDefList) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_CDEF;
+    temp->varname = strdup(name->varname);
+    temp->left = makeConnectorNode(name, fieldList);
+    temp->right = makeConnectorNode(methodList, methodDefList);
+    installClass(temp);
     return temp;
 }

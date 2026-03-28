@@ -6,9 +6,35 @@
 #include "../codegen/utils.h"
 #include "../type_table/tt.h"
 #include "../symbol_table/lst.h"
+#include "../class_table/ct.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
+
+classTable *currClass = NULL;
+int fieldLevel = 0;
+
+void enforcePrivateAttributes(node* root) {
+    if(root == NULL) {
+        return;
+    }
+    
+    if(root->nodetype == NODE_FIELD) {
+        enforcePrivateAttributes(root->left);
+        typeHandle* type = getType(root);
+        if(type->cType && type->cType != currClass) {
+            printf("\n%p %p\n", type->cType, currClass);
+            printf("Semantics Error: Attempting to access private field '%s' of class '%s' from outside the class\n", root->right->varname, type->cType->name);
+            exit(1);
+        }
+    }
+    
+    typeHandle *type = getType(root);
+    if(type->cType && type->cType != currClass) {
+        printf("Semantics Error: Attempting to access private method '%s' of class '%s' from outside the class\n", root->varname, type->cType->name);
+        exit(1);
+    }
+}
 
 void matchParamsList(struct paramStruct** paramList, node* argList) {
     if(paramList == NULL || *paramList == NULL) {
@@ -34,36 +60,32 @@ void matchParamsList(struct paramStruct** paramList, node* argList) {
         return;
     }
 
-    if(*paramList == NULL) {
-        printf("Semantics Error: Too many arguments in function definition/call\n");
-        exit(1);
-    }
-
     if(argList->nodetype == NODE_PARAM) {
-        if((*paramList)->type != getType(argList)) {
-            printf("Semantics Error: Fn def - Parameter typ mismatch for parameter '%s'\n", (*paramList)->name);
+        if(strcmp(argList->varname, "self") == 0) {
+            // skip it, it's an implicit parameter
+            return;
+        }
+        if(!checkTypeEquivalence(getType(argList), (*paramList)->type, (*paramList)->cType)) {
+            printf("Semantics Error: Fn def - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
             exit(1);
         }
         if(strcmp((*paramList)->name, argList->right->varname) != 0) {
             printf("Semantics Error: Fn def - Parameter name mismatch for parameter '%s'\n", (*paramList)->name);
             exit(1);
         }
-        *paramList = (*paramList)->next;
-        return;
     }
 
     if(argList->nodetype == NODE_ARG) {
-        if((*paramList)->type != getType(argList->left)) {
-            printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s' '%s' vs '%s'\n", (*paramList)->name, (*paramList)->type->name, getType(argList->left)->name);
+        if(!checkTypeEquivalence(getType(argList->left), (*paramList)->type, (*paramList)->cType)) {
+            printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s' '%s'\n", (*paramList)->name, (*paramList)->type->name);
             exit(1);
         }
         if((*paramList)->ptr_level != getDerefLevel(argList->left)) {
             printf("Semantics Error: Fn call - Dereference level mismatch for parameter '%s'\n", (*paramList)->name);
             exit(1);
         }
-        *paramList = (*paramList)->next;
-        return;
     }
+
     *paramList = (*paramList)->next;
     return;
 }
@@ -114,8 +136,13 @@ void semantics(node* root) {
             semantics(left);
             semantics(right);
 
+            if(left->nodetype == NODE_ID && strcmp(left->varname, "self") == 0) {
+                printf("Semantics Error: Cannot assign to 'self'\n");
+                exit(1);
+            }
+
             if(right->nodetype == NODE_NULL || right->nodetype == NODE_ALLOC) {
-                typeTable* leftType = getType(left);
+                typeTable* leftType = getType(left)->type;
                 if(leftType != ttLookup("int") && leftType != ttLookup("str")) {
                     // Allowed
                     return;
@@ -145,8 +172,8 @@ void semantics(node* root) {
                 printf("Semantics Error: Dereference level mismatch in assignment to variable '%s'\n", left->varname);
                 exit(1);
             }
-            if(getType(left) != getType(right)) {
-                printf("Semantics Error: type mismatch in assignment to variable '%s' (%s)\n", left->varname, getType(left)->name);
+            if(getType(left)->type != getType(right)->type || getType(left)->cType != getType(right)->cType) {
+                printf("Semantics Error: type mismatch in assignment to variable '%s' ('%s' vs '%s')\n", left->varname, getType(left)->type ? getType(left)->type->name : "unknown", getType(right)->type ? getType(right)->type->name : "unknown");
                 exit(1);
             }
 
@@ -161,6 +188,9 @@ void semantics(node* root) {
             }
             if(root->type == NULL) {
                 root->type = entry->type;
+            }
+            if(root->cType == NULL) {
+                root->cType = entry->cType;
             }
             return;
         }
@@ -193,7 +223,7 @@ void semantics(node* root) {
                 printf("Semantics Error: Invalid dereference level in index expression for array '%s'\n", root->varname);
                 exit(1);
             }
-            if(getType(root->right) != ttLookup("int")) {
+            if(getType(root->right)->type != ttLookup("int")) {
                 printf("Semantics Error: Non-integer index expression for array '%s'\n", root->varname);
                 exit(1);
             }
@@ -232,11 +262,11 @@ void semantics(node* root) {
             semantics(root->left);
             semantics(root->right);
 
-            typeTable* leftType = getType(root->left);
-            typeTable* rightType = getType(root->right);
+            typeHandle* leftType = getType(root->left);
+            typeHandle* rightType = getType(root->right);
 
             if(root->right->nodetype == NODE_NULL) {
-                if(leftType != ttLookup("int") && leftType != ttLookup("str")){
+                if(leftType->type != ttLookup("int") && leftType->type != ttLookup("str")){
                     // Allowed
                     return;
                 }
@@ -250,8 +280,8 @@ void semantics(node* root) {
                 printf("Semantics Error: Dereference level mismatch in equality comparison\n");
                 exit(1);
             }
-            if(leftType != rightType) {
-                printf("Semantics Error: Type mismatch in equality comparison ('%s' != '%s')\n", leftType ? leftType->name : "unknown", rightType ? rightType->name : "unknown");
+            if(leftType->type != rightType->type || leftType->cType != rightType->cType) {
+                printf("Semantics Error: Type mismatch in equality comparison b/w '%s' and '%s'\n", root->left->varname, root->right->varname);
                 exit(1);
             }
 
@@ -267,9 +297,9 @@ void semantics(node* root) {
             semantics(right);
 
             if(
-               getType(left) == ttLookup("int") && getDerefLevel(left) == 0
+               getType(left)->type == ttLookup("int") && getDerefLevel(left) == 0
                 &&
-               getType(right) == ttLookup("int") && getDerefLevel(right) == 0
+               getType(right)->type == ttLookup("int") && getDerefLevel(right) == 0
             ) {
                 // Allowed
                 root->type = ttLookup("int");
@@ -283,7 +313,7 @@ void semantics(node* root) {
 
             if(getDerefLevel(left) > 0 && getDerefLevel(right) == 0
                 &&
-               getType(right) == ttLookup("int") 
+               getType(right)->type == ttLookup("int") 
             ) {
                 // Allowed (pointer arithmetic)
                 root->type = left->type;
@@ -292,7 +322,7 @@ void semantics(node* root) {
 
             if(getDerefLevel(right) > 0 && getDerefLevel(left) == 0
                 &&
-               getType(left) == ttLookup("int") 
+               getType(left)->type == ttLookup("int") 
             ) {
                 // Allowed (pointer arithmetic)
                 root->type = right->type;
@@ -313,9 +343,9 @@ void semantics(node* root) {
             semantics(right);
 
             if(
-               getType(left) == ttLookup("int") && getDerefLevel(left) == 0
+               getType(left)->type == ttLookup("int") && getDerefLevel(left) == 0
                 &&
-               getType(right) == ttLookup("int") && getDerefLevel(right) == 0
+               getType(right)->type == ttLookup("int") && getDerefLevel(right) == 0
             ) {
                 // Allowed
                 root->type = ttLookup("int");
@@ -336,9 +366,9 @@ void semantics(node* root) {
             semantics(right);
 
             if(
-               getType(left) == ttLookup("int") && getDerefLevel(left) == 0
+               getType(left)->type == ttLookup("int") && getDerefLevel(left) == 0
                 &&
-               getType(right) == ttLookup("int") && getDerefLevel(right) == 0
+               getType(right)->type == ttLookup("int") && getDerefLevel(right) == 0
             ) {
                 // Allowed
                 root->type = ttLookup("bool");
@@ -354,7 +384,7 @@ void semantics(node* root) {
             semantics(root->left); // condition
             semantics(root->right); // if body
 
-            if(getType(root->left) != ttLookup("bool")) {
+            if(getType(root->left)->type != ttLookup("bool")) {
                 printf("Semantics Error: Condition expression in if statement must be of type bool\n");
                 exit(1);
             }
@@ -370,7 +400,7 @@ void semantics(node* root) {
             semantics(left);
             semantics(right); 
 
-            if(getType(left) != ttLookup("bool")) {
+            if(getType(left)->type != ttLookup("bool")) {
                 printf("Semantics Error: Condition expression in while statement must be of type bool\n");
                 exit(1);
             }
@@ -391,7 +421,7 @@ void semantics(node* root) {
                 exit(1);
             }
 
-            if(root->type != root->gstEntry->type) {
+            if(root->type != root->gstEntry->type || root->cType != root->gstEntry->cType) {
                 printf("Semantics Error: Return type mismatch in function definition for function '%s'\n", root->varname);
                 exit(1);
             }
@@ -413,7 +443,7 @@ void semantics(node* root) {
 
             buildLST(root->right->left, &lstRoot, gstEntry->paramList);
 
-            printGST(lstRoot);
+            // printGST(lstRoot);
 
             semantics(root->right->right); // function body
 
@@ -422,7 +452,28 @@ void semantics(node* root) {
             return;
         }
 
+        
         case NODE_FIELD: {
+            fieldLevel++;
+            if(fieldLevel <= 1) {
+                enforcePrivateAttributes(root);
+            }
+            if(root->left->nodetype != NODE_FIELD) {
+                if(getDerefLevel(root->left) != 0) {
+                    printf("Semantics Error: Cannot access field of pointer variable '%s' without dereferencing\n", root->left->varname);
+                    exit(1);
+                }
+                if(root->left->nodetype == NODE_ADDR_OF) {
+                    printf("Semantics Error: Cannot access field of address of variable '%s'\n", root->left->right->varname);
+                    exit(1);
+                }
+            }
+            semantics(root->left);
+            fieldLevel--;
+            return;
+        }
+
+        case NODE_FIELDFN: {
             if(root->left->nodetype != NODE_FIELD) {
                 if(getDerefLevel(root->left) != 0) {
                     printf("Semantics Error: Cannot access field of pointer variable '%s' without dereferencing\n", root->left->varname);
@@ -446,7 +497,7 @@ void semantics(node* root) {
                 exit(1);
             }
 
-            if(root->type != gstEntry->type) {
+            if(root->type != gstEntry->type || root->cType != gstEntry->cType) {
                 printf("Semantics Error: Return type mismatch in function call for function '%s'\n", root->varname);
                 exit(1);
             }
@@ -466,7 +517,7 @@ void semantics(node* root) {
 
         case NODE_DECL:
         case NODE_LDECL: {
-            if(ttLookup(root->left->varname) == NULL) {
+            if(ttLookup(root->left->varname) == NULL && ctLookup(root->left->varname) == NULL) {
                 printf("Semantics Error: Undeclared type '%s' used in declaration\n", root->left->varname);
                 exit(1);
             }
@@ -481,7 +532,7 @@ void semantics(node* root) {
 
         case NODE_MAIN: {
             buildLST(root->left, &lstRoot, NULL);
-            printGST(lstRoot);
+            // printGST(lstRoot);
             semantics(root->right);
             freeLst(lstRoot);
             lstRoot = NULL;
@@ -495,15 +546,74 @@ void semantics(node* root) {
 
         case NODE_FREE: {
             semantics(root->left);
-            typeTable* argType = getType(root->left);
+            typeHandle* argType = getType(root->left);
             if(argType == NULL) {
                 printf("Semantics Error: Attempting to free variable of unknown type\n");
                 exit(1);
             }
-            if(argType == ttLookup("int") || argType == ttLookup("str")) {
-                printf("Semantics Error: Cannot free variable of type '%s'\n", argType->name);
+            if(argType->type == ttLookup("int") || argType->type == ttLookup("str")) {
+                printf("Semantics Error: Cannot free variable of type '%s'\n", argType->type ? argType->type->name : argType->cType->name);
                 exit(1);
             }
+            return;
+        }
+
+        case NODE_CDEF: {
+            currClass = ctLookup(root->varname);
+            semantics(root->right->right); // class fn definition
+            currClass = NULL;
+            return;
+        }
+
+        case NODE_PARAM: {
+            if(getType(root->left) == NULL) {
+                printf("Semantics Error: Undeclared type for parameter '%s'\n", root->right->varname);
+                exit(1);
+            }
+            if(strcmp(root->right->varname, "self") == 0 && currClass != NULL) {
+                // Allowed
+            }
+            return;
+        }
+
+        case NODE_CFNDEF: {
+            cMethodList* methodEntry = ctMethodLookup(currClass->name, root->varname);
+
+            if(methodEntry == NULL) {
+                printf("Semantics Error: Method '%s' not declared in class '%s'\n", root->varname, currClass->name);
+                exit(1);
+            }
+            
+            if(root->type != methodEntry->type) {
+                printf("Semantics Error: Return type mismatch in method definition for method '%s' in class '%s'\n", root->varname, currClass->name);
+                exit(1);
+            }
+
+            struct paramStruct* params = methodEntry->params;
+            node* paramList = root->left;
+            matchParamsList(&params, paramList);
+            if(params != NULL) {
+                printf("Semantics Error: Too few arguments in method definition for method '%s' in class '%s'\n", root->varname, currClass->name);
+                exit(1);
+            }
+
+            // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
+            params = methodEntry->params; // reset params pointer to head of list
+            lstRoot = lstInstall(lstRoot, "self", NULL, ctLookup(currClass->name), 0); // install self parameter
+            while(params != NULL) {
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                params = params->next;
+            }
+            bindParams(lstRoot); // assign bindings to parameters
+            
+            buildLST(root->right->left, &lstRoot, methodEntry->params);
+
+            printGST(lstRoot);
+
+            semantics(root->right->right); // method body
+
+            freeLst(lstRoot);
+            lstRoot = NULL;
             return;
         }
     }

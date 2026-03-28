@@ -97,7 +97,8 @@ classDefList : classDefList classDef   { $$ = makeConnectorNode($1, $2); }
              | classDef               { $$ = $1; }
              ;
 
-classDef : cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { /* TODO */ }
+classDef : cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, $5, $7); }
+classDef : cName '{' DECL cFieldList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, NULL, $6); }
          ;
 
 cName : ID    { $$ = $1; }
@@ -106,18 +107,18 @@ cFieldList : cFieldList cField   { $$ = makeConnectorNode($1, $2); }
            | cField              { $$ = $1; }
            ;
 
-cField : typeName ID ';' { /* TODO */ }
+cField : typeName ID ';' { $$ = makeClassFieldNode($1, $2); }
        ;
 
 cMethodList : cMethodList cMethod   { $$ = makeConnectorNode($1, $2); }
             | cMethod               { $$ = $1; }
             ;
 
-cMethod : typeName ID '(' paramList ')' ';' { /* TODO */ }
-        | typeName ID '(' ')' ';' { /* TODO */ }
+cMethod : typeName ID '(' paramList ')' ';' { $$ = makeClassMethodNode($1, $2, $4); }
+        | typeName ID '(' ')' ';' { $$ = makeClassMethodNode($1, $2, NULL); }
         ;
 
-cMethodDefList : fDefBlock { /* TODO */ }
+cMethodDefList : fDefBlock { $$ = makeClassFnDefNode($1); }
                |           { $$ = NULL; }
                ;
 
@@ -261,8 +262,8 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
 field : identifier '.' ID     { $$ = makeFieldNode($1, $3); }
       ;
 
-fieldFn : identifier '.' ID '(' argList ')' { /* TODO */ }
-        | identifier '.' ID '(' ')'         { /* TODO */ }
+fieldFn : identifier '.' ID '(' argList ')' { $$ = makeFieldFnNode($1, $3, $5); }
+        | identifier '.' ID '(' ')'         { $$ = makeFieldFnNode($1, $3, NULL); }
         ; 
 
 argList : argList ',' arg   { $$ = makeConnectorNode($1, $3); }
@@ -315,8 +316,7 @@ int main() {
     fprintf(targetFile, "0\n2056\n0\n0\n0\n0\n0\n0\n");
     fprintf(targetFile, "BRKP\n");
     fprintf(targetFile, "MOV SP, %d\n", getSP());
-    // fprintf(targetFile, "PUSH R0\n");
-    // fprintf(targetFile, "PUSH R0\n");
+    fprintf(targetFile, "PUSH BP\n");
     fprintf(targetFile, "CALL M0\n");
     codeGen(root, targetFile);
 

@@ -1,6 +1,8 @@
 #ifndef CT_H
 #define CT_H
 
+struct paramStruct;
+
 struct classTable {
     char *name;
     struct cFieldList *memberFields;
@@ -23,22 +25,16 @@ struct cFieldList {
 struct cMethodList {
     char *name;
     struct typeTable *type;
-    struct paramList *params;
+    struct paramStruct *params;
     int funcIndex;
     int funcLabel;
     struct cMethodList *next;
 };
 
-struct paramList {
-    char *name;
-    struct typeTable *type; // Params can't be of class type (class types strictly global)
-    struct paramList *next;
-};
-
 typedef struct classTable classTable;
 typedef struct cFieldList cFieldList;
 typedef struct cMethodList cMethodList;
-typedef struct paramList paramList;
+typedef struct paramStruct paramStruct;
 
 classTable *ctLookup(char *name);
 void ctInstall(char *name);

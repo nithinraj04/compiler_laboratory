@@ -118,7 +118,7 @@ void buildLST(node* root, gst** lst, struct paramStruct* paramList) {
     if(root->nodetype == NODE_LDECL) {
         typeTable* type = ttLookup(root->left->varname);
         classTable* cType = ctLookup(root->left->varname);
-        if(type == NULL) {
+        if(type == NULL && cType == NULL) {
             printf("Error: Undeclared type '%s' in local declaration\n", root->left->varname);
             exit(1);
         }
@@ -180,26 +180,78 @@ int binaryOpHandler(node* root, FILE* targetFile) {
     return leftReg;
 }
 
-typeTable* getType(node* root) {
+typeHandle* createTypeHandleNode(typeTable* type, classTable* cType) {
+    typeHandle* temp = (typeHandle*) malloc(sizeof(typeHandle));
+    temp->type = type;
+    temp->cType = cType;
+    return temp;
+}
+
+typeHandle* getType(node* root) {
     if(root == NULL) {
         return NULL;
     }
 
-    if(root->nodetype == NODE_FIELD) {
-        typeTable* left = getType(root->left);
-        if(left == NULL || left == ttLookup("int") || left == ttLookup("str") || left == ttLookup("bool") || left == ttLookup("null")) {
-            printf("Error: Attempting to access field of non user-defined type '%s'\n", left ? left->name : "unknown");
+    if(root->nodetype == NODE_FIELDFN) {
+        typeHandle* leftType = getType(root->left);
+        if(leftType == NULL) {
+            printf("Error: Could not determine type of field function receiver\n");
             exit(1);
         }
-        fieldList* field = ttFieldLookup(left->name, root->right->varname);
-        if(field == NULL) {
-            printf("Error: No field named '%s' in user-defined type '%s'\n", root->right->varname, left->name);
+
+        cMethodList *method = ctMethodLookup(leftType->cType->name, root->right->left->varname);
+        if(method == NULL) {
+            printf("Error: No method named '%s' in type '%s' for field function call\n", root->right->varname, leftType->type ? leftType->type->name : leftType->cType->name);
             exit(1);
         }
-        return field->type;
+        free(leftType);
+        return createTypeHandleNode(method->type, NULL);
     }
 
-    return root->type;
+    if(root->nodetype == NODE_FIELD) {
+        typeHandle* left = getType(root->left);
+
+        if(left->cType) {
+            struct cFieldList* field = ctFieldLookup(left->cType->name, root->right->varname);
+            if(field == NULL) {
+                printf("Error: No field named '%s' in class '%s'\n", root->right->varname, left->cType->name);
+                exit(1);
+            }
+            free(left);
+            return createTypeHandleNode(field->type, field->cType);
+        }
+
+        if((left->type == NULL && left->cType == NULL) || left->type == ttLookup("int") || left->type == ttLookup("str") || left->type == ttLookup("bool") || left->type == ttLookup("null")) {
+            printf("Error: Attempting to access field '%s' of non user-defined type '%s'\n", root->right->varname, (left && left->type) ? left->type->name : "unknown");
+            exit(1);
+        }
+
+        fieldList* field = ttFieldLookup(left->type->name, root->right->varname);
+        if(field == NULL) {
+            printf("Error: No field named '%s' in user-defined type '%s'\n", root->right->varname, left->type->name);
+            exit(1);
+        }
+        free(left);
+        return createTypeHandleNode(field->type, NULL);
+    }
+
+    if(root->varname) {
+        gst* gstEntry = globalLookup(gstRoot, lstRoot, root->varname);
+        if(gstEntry != NULL) {
+            return createTypeHandleNode(gstEntry->type, gstEntry->cType);
+        }
+    }
+    return createTypeHandleNode(root->type, root->cType);
+}
+
+int checkTypeEquivalence(typeHandle *tHandle, typeTable *type, classTable *cType) {
+    if(tHandle->type && tHandle->type != type) {
+        return 0;
+    }
+    if(tHandle->cType && tHandle->cType != cType) {
+        return 0;
+    }
+    return 1;
 }
 
 labelStack* createLabelStackNode(int cond, int end) {
@@ -232,6 +284,4 @@ labelStack* popLabelStack(labelStack* top) {
     free(temp);
     return top;
 }
-
-
 

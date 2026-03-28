@@ -53,6 +53,10 @@ gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int p
 }
 
 gst* lstLookup(gst* head, char* name) {
+    if(name == NULL) {
+        return NULL;
+    }
+
     gst* temp = head;
     while (temp != NULL) {
         if (strcmp(temp->name, name) == 0) {
@@ -64,6 +68,10 @@ gst* lstLookup(gst* head, char* name) {
 }
 
 gst* globalLookup(gst* gstHead, gst* lstHead, char* name) {
+    if(name == NULL) {
+        return NULL;
+    }
+
     gst* temp = lstLookup(lstHead, name);
     if(temp) {
         return temp;

@@ -129,24 +129,24 @@ void installClass(node* root) {
         return;
     }
 
-    if(root->nodetype == NODE_CFNDEF) {  // Adding self as first param
-        classTable* lastClass = getLastClass();
-        node* typeNode = makeLeafIdNode(lastClass->name);
-        node* nameNode = makeLeafIdNode("self");
-        node* paramNode = makeParamNode(typeNode, nameNode);
-        paramNode->varname = strdup("self");
-        
-        if(root->left == NULL) {
-            root->left = paramNode;
-            return;
-        }
-        node* paramList = root->left;
-        while(paramList->left != NULL) {
-            paramList = paramList->left;
-        }
-        paramList->left = paramNode;
-        return;
-    }
+    // if(root->nodetype == NODE_CFNDEF) {  // Adding self as first param
+    //     classTable* lastClass = getLastClass();
+    //     node* typeNode = makeLeafIdNode(lastClass->name);
+    //     node* nameNode = makeLeafIdNode("self");
+    //     node* paramNode = makeParamNode(typeNode, nameNode);
+    //     paramNode->varname = strdup("self");
+
+    //     if(root->left == NULL) {
+    //         root->left = paramNode;
+    //         return;
+    //     }
+    //     node* paramList = root->left;
+    //     while(paramList->left != NULL) {
+    //         paramList = paramList->left;
+    //     }
+    //     paramList->left = paramNode;
+    //     return;
+    // }
 
     installClass(root->left);
     installClass(root->right);

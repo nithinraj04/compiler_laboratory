@@ -5,6 +5,12 @@
 #include "../tree/tree.h"
 
 typedef struct typeTable typeTable; // Forward declaration of typeTable from tt.h
+typedef struct classTable classTable; // Forward declaration of classTable from ct.h
+
+struct typeHandle {
+    typeTable* type;
+    classTable* cType;
+};
 
 typedef struct labelStack {
     int cond;
@@ -12,6 +18,8 @@ typedef struct labelStack {
     struct labelStack* next;
     struct labelStack* prev;
 } labelStack;
+
+typedef struct typeHandle typeHandle;
 
 labelStack* createLabelStackNode(int cond, int end);
 labelStack* pushLabelStack(labelStack* top, int cond, int end);
@@ -26,7 +34,8 @@ void buildLST(node* root, gst** lst, struct paramStruct* paramList);
 void pushRegStack();
 void popRegStack();
 int getDeclaredPtrLevel(node* root);
-typeTable* getType(node* root);
+typeHandle* getType(node* root);
+int checkTypeEquivalence(typeHandle *tHandle, typeTable *type, classTable *cType);
 
 extern int regCount;
 extern int label;

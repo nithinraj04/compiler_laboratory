@@ -39,11 +39,11 @@ digit [0-9]
 "type"    { return TYPE; }
 "endtype" { return ENDTYPE; }
 "initialize" { return INITIALIZE; }
-"alloc"   { return ALLOC; }
-"free"    { return FREE; }
-"class"   { return CLASS; }
-"endclass" { return ENDCLASS; }
-[a-zA-Z][a-zA-Z0-9]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
+"alloc"      { return ALLOC; }
+"free"       { return FREE; }
+"class"      { return CLASS; }
+"endclass"   { return ENDCLASS; }
+[a-zA-Z][a-zA-Z0-9_]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "."      { return '.'; }
 "+"      { return '+'; }
 "-"      { return '-'; }

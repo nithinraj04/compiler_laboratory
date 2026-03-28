@@ -3,6 +3,7 @@
 #include <string.h>
 #include "ct.h"
 #include "../type_table/tt.h"
+#include "../symbol_table/gst.h"
 
 classTable* ctRoot = NULL;
 
@@ -61,8 +62,8 @@ cMethodList *createClassMethodNode(char* name, char* returnType) {
     return temp;
 }
 
-paramList *createClassMethodParamNode(char* name, char* typeName) {
-    paramList *temp = (paramList*) malloc(sizeof(struct paramList));
+paramStruct *createClassMethodParamNode(char* name, char* typeName) {
+    paramStruct *temp = (paramStruct*) malloc(sizeof(struct paramStruct));
     temp->name = strdup(name);
     temp->next = NULL;
 
@@ -169,7 +170,7 @@ void ctAddMethod(char* name, char* returnType) {
 }    
 
 void ctAddMethodParam(char* name, char* typeName){
-    paramList *temp = createClassMethodParamNode(name, typeName);
+    paramStruct *temp = createClassMethodParamNode(name, typeName);
 
     if(ctRoot == NULL) {
         printf("Error: No classes in class table\n");
@@ -195,7 +196,7 @@ void ctAddMethodParam(char* name, char* typeName){
         method->params = temp;
         return;
     }
-    paramList *curr = method->params;
+    paramStruct *curr = method->params;
     while(curr->next != NULL) {
         curr = curr->next;
     }

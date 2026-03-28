@@ -1,6 +1,7 @@
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
 #include "../type_table/tt.h"
+#include "../class_table/ct.h"
 #include "utils.h"
 #include "libfuncs.h"
 #include <stdio.h>
@@ -14,6 +15,7 @@ int fnlabel = 0;
 labelStack* labelStackTop = NULL;
 extern gst* gstRoot;
 extern gst* lstRoot;
+extern classTable* currClass;
 
 extern int binaryOpHandler(node* root, FILE* targetFile);
 
@@ -27,6 +29,7 @@ int getAddr(node* varNode, FILE* targetFile) {
         exit(1);
     }
     varNode->type = entry->type; 
+    varNode->cType = entry->cType;
     if(entry->relativeBinding != -1) {
         int reg = getReg();
         fprintf(targetFile, "MOV R%d, BP\n", reg);
@@ -50,10 +53,16 @@ int getFieldAddr(FILE* targetFile, node* fieldNode) {
     }
 
     int reg = getFieldAddr(targetFile, fieldNode->left);
-    typeTable* leftType = getType(fieldNode->left);
-    fieldList* field = ttFieldLookup(leftType->name, fieldNode->right->varname);
+    typeHandle* leftType = getType(fieldNode->left);
+    int fieldIndex;
+    if(leftType->type) {
+        fieldIndex = ttFieldLookup(leftType->type->name, fieldNode->right->varname)->fieldIndex;
+    }
+    else {
+        fieldIndex = ctFieldLookup(leftType->cType->name, fieldNode->right->varname)->fieldIndex;
+    }
     fprintf(targetFile, "MOV R%d, [R%d]\n", reg, reg);
-    fprintf(targetFile, "ADD R%d, %d\n", reg, field->fieldIndex);
+    fprintf(targetFile, "ADD R%d, %d\n", reg, fieldIndex);
     return reg;
 }
 
@@ -391,6 +400,104 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "MOV R%d, 0\n", reg);
             return reg;
         }
+        case NODE_CDEF: {
+            currClass = ctLookup(root->varname);
+            codeGen(root->right->right, targetFile);
+            currClass = NULL;
+            return -1;
+        }
+        case NODE_CFNDEF: {
+            cMethodList* methodEntry = ctMethodLookup(currClass->name, root->varname);
+
+            int fnLabel = getFnLabel();
+            methodEntry->funcLabel = fnLabel;
+            fprintf(targetFile, "F%d:\n", fnLabel);
+
+            fprintf(targetFile, "PUSH BP\n");  // Save caller's BP
+            fprintf(targetFile, "MOV BP, SP\n");  // Set BP to current SP
+
+            struct paramStruct* params = methodEntry->params;
+
+            // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
+            params = methodEntry->params; // reset params pointer to head of list
+            lstRoot = lstInstall(lstRoot, "self", NULL, ctLookup(currClass->name), 0); // install self parameter
+            while(params != NULL) {
+                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                params = params->next;
+            }
+            bindParams(lstRoot); // assign bindings to parameters
+            
+            buildLST(root->right->left, &lstRoot, methodEntry->params);
+
+            // printGST(lstRoot);
+
+            gst* localHead = lstRoot;
+            gst* localCursor = localHead;
+            
+            int localVarReserve = 0;
+            while(localCursor != NULL) {
+                if(localCursor->binding != -1 || localCursor->relativeBinding >= 0) {
+                    localVarReserve++;
+                }
+                localCursor = localCursor->next;
+            }
+            if(localVarReserve > 0) {
+                fprintf(targetFile, "ADD SP, %d\n", localVarReserve); // Reserve space for local variables
+            }
+
+            codeGen(root->right->right, targetFile);
+
+            fprintf(targetFile, "MOV SP, BP\n"); // Deallocate local variables
+            fprintf(targetFile, "POP BP\n"); // Restore caller's BP
+            fprintf(targetFile, "RET\n");
+
+            freeLst(localHead);
+            lstRoot = NULL;
+            return -1;
+        }
+        case NODE_FIELDFN: {
+            int regCount = getRegCount();
+            
+            for(int i = 0; i < regCount; i++) {
+                fprintf(targetFile, "PUSH R%d\n", i);
+            }
+            
+            pushRegStack();
+
+            typeHandle* type = getType(root->left);
+            cMethodList* methodEntry = ctMethodLookup(type->cType->name, root->right->left->varname);
+            
+            // Push self pointer
+            int selfReg = getFieldAddr(targetFile, root->left);  // Addr in stack, that holds addr to heap
+            fprintf(targetFile, "MOV R%d, [R%d]\n", selfReg, selfReg); // Addr in heap
+            fprintf(targetFile, "PUSH R%d\n", selfReg);  // Push self pointer value
+            freeReg();
+            codeGen(root->right->right, targetFile); // evaluate args
+            fprintf(targetFile, "PUSH R0\n"); // space for return value
+            fprintf(targetFile, "CALL F%d\n", methodEntry->funcLabel); // Transfer control
+
+            popRegStack();
+
+            int retReg = getReg();
+            fprintf(targetFile, "POP R%d\n", retReg); // Get return value
+
+            // Clean up arguments from stack
+            int argCount = 0;
+            struct paramStruct* paramList = methodEntry->params;
+            while(paramList) {
+                argCount++;
+                paramList = paramList->next;
+            }
+            if(argCount > 0) {
+                fprintf(targetFile, "SUB SP, %d\n", argCount);
+            }
+
+            for(int i = regCount - 1; i >= 0; i--) {
+                fprintf(targetFile, "POP R%d\n", i);
+            }
+
+            return retReg;
+        }
         default:
             fprintf(stderr, "Error: Unknown node type %d\n", root->nodetype);
             exit(1);
@@ -520,6 +627,24 @@ void printAST(node* root, const char* prefix, int isLast) {
             break;
         case NODE_FIELD:
             printf("FIELD\n");
+            break;
+        case NODE_TYPEDEF:
+            printf("TYPEDEF - %s\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_CDEF:
+            printf("CLASS DEF - %s\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_CFIELD:
+            printf("CLASS FIELD\n");
+            break;
+        case NODE_CMETHOD:
+            printf("CLASS METHOD - %s\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_CFNDEF:
+            printf("CLASS FNDEF - %s\n", root->varname ? root->varname : "unknown");
+            break;
+        case NODE_NULL:
+            printf("NULL\n");
             break;
         default:
             printf("UNKNOWN(%d)\n", root->nodetype);

@@ -61,6 +61,7 @@ typedef enum {
 } nodeType;
 
 typedef enum varType varType; // Forward declaration of varType for gst.h
+typedef struct classTable classTable; // Forward declaration of classTable for gst.h
 
 #include "../symbol_table/gst.h"
 
@@ -68,6 +69,7 @@ typedef struct node{
     int val;        
     char* strval;    
     struct typeTable* type; 
+    struct classTable* cType;
     char* varname;  
     nodeType nodetype;   
     struct gst* gstEntry;
@@ -110,7 +112,7 @@ node* makeInitializeNode();
 node* makeFreeNode(node* arg);
 node* makeAllocNode();
 node* makeFieldNode(node* var, node* field);
-node* makeFieldFnNode(node* type, node* name, node* args);
+node* makeFieldFnNode(node* var, node* field, node* args);
 node* makeClassFnDefNode(node* fnDef);
 node* makeClassMethodNode(node* type, node* name, node* params);
 node* makeClassFieldNode(node* type, node* name);

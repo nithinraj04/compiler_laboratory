@@ -3,6 +3,7 @@
 #include <string.h>
 #include "../tree/tree.h"
 #include "../type_table/tt.h"
+#include "../class_table/ct.h"
 #include "gst.h"
 
 int addr_counter = 4096;
@@ -95,8 +96,10 @@ void printGST(gst* head) {
     printf("Name\tType\tSize\tBinding\tRBinding\tPtr_Level\n");
     while (temp != NULL) {
         char* typeStr = "";
+        char* cTypeStr = "";
         if(temp->type) typeStr = temp->type->name;
-        printf("%s\t%s\t%d\t%d\t%d\t\t%d\n", temp->name, typeStr, temp->size, temp->binding, temp->relativeBinding, temp->ptr_level);
+        if(temp->cType) cTypeStr = temp->cType->name;
+        printf("%s\t%s\t%s\t%d\t%d\t%d\t\t%d\n", temp->name, typeStr, cTypeStr, temp->size, temp->binding, temp->relativeBinding, temp->ptr_level);
         if(temp->paramList) {
             printf("\tParameters:\n");
             printf("\tName\tType\tPtr_Level\n");

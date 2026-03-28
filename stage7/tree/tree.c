@@ -14,6 +14,7 @@ node* createTreeNode() {
     node* temp = (node*) malloc(sizeof(node));
     temp->varname = NULL;
     temp->type = NULL;
+    temp->cType = NULL;
     temp->left = NULL;
     temp->right = NULL;
     temp->gstEntry = NULL;
@@ -49,6 +50,7 @@ node* makeLeafIdNode(char* varname) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
+        temp->cType = temp->gstEntry->cType;
     }
     temp->left = NULL;
     temp->right = NULL;
@@ -63,6 +65,7 @@ node* makeArrayNode(node* varname, node* sizeNode) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, varname->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
+        temp->cType = temp->gstEntry->cType;
     }
     temp->left = varname;
     temp->right = sizeNode;
@@ -80,6 +83,7 @@ node* makeOpNode(char* op, node* left, node* right) {
     if(strcmp(op, "=") == 0) {
         temp->nodetype = NODE_ASSIGN;
         temp->type = right->type;
+        temp->cType = right->cType;
     }
     else if(strcmp(op, "==") == 0) {
         temp->nodetype = NODE_EQ;
@@ -91,7 +95,7 @@ node* makeOpNode(char* op, node* left, node* right) {
     }
     else if(strcmp(op, "+") == 0) {
         temp->nodetype = NODE_PLUS;
-        if(getType(temp) != ttLookup("int") || getType(temp) != ttLookup("int")) {
+        if(getType(temp)->type != ttLookup("int") || getType(temp)->type != ttLookup("int")) {
             temp->type = ttLookup("str");
         } else {
             temp->type = ttLookup("int");
@@ -99,7 +103,7 @@ node* makeOpNode(char* op, node* left, node* right) {
     }
     else if(strcmp(op, "-") == 0) { 
         temp->nodetype = NODE_MINUS;
-        if(getType(temp) != ttLookup("int") || getType(temp) != ttLookup("int")) {
+        if(getType(temp)->type != ttLookup("int") || getType(temp)->type != ttLookup("int")) {
             temp->type = ttLookup("str");
         } else {
             temp->type = ttLookup("int");
@@ -237,6 +241,7 @@ node* makeTypeNode(char* type) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_TYPE;
     temp->type = ttLookup(type);
+    temp->cType = ctLookup(type);
     return temp;
 }
 
@@ -245,6 +250,7 @@ node* makePtrNode(node* ptrTo) {
     temp->nodetype = NODE_PTR;
     temp->varname = strdup(ptrTo->varname);
     temp->type = ptrTo->type;
+    temp->cType = ptrTo->cType;
     if(ptrTo->gstEntry) {
         temp->gstEntry = ptrTo->gstEntry;
         // Level of PTR would have already been updated in decl section
@@ -260,6 +266,7 @@ node* makeAddressNode(node* var) {
     temp->nodetype = NODE_ADDR_OF;
     temp->varname = strdup(var->varname);
     temp->type = var->type;
+    temp->cType = var->cType;
     if(var->gstEntry) {
         temp->gstEntry = var->gstEntry;
         temp->varname = var->varname;
@@ -292,6 +299,7 @@ node* makeFnDefNode(node* type, node* name, node* paramList, node* lDeclBlock, n
     temp->varname = strdup(name->varname);
     temp->gstEntry = gstLookup(name->varname);
     temp->type = ttLookup(type->varname);
+    temp->cType = ctLookup(type->varname);
     temp->left = paramList;
     temp->right = makeConnectorNode(lDeclBlock, body);
     free(type);
@@ -304,6 +312,7 @@ node* makeParamNode(node* type, node* var) {
     temp->nodetype = NODE_PARAM;
     temp->varname = strdup(var->varname);
     temp->type = ttLookup(type->varname);
+    temp->cType = ctLookup(type->varname);
     temp->left = type;
     temp->right = var;
     return temp;
@@ -313,6 +322,7 @@ node* makeReturnNode(node* retVal) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_RETURN;
     temp->type = retVal->type;
+    temp->cType = retVal->cType;
     temp->left = retVal;
     temp->right = NULL;
     return temp;
@@ -325,6 +335,7 @@ node* makeFnCallNode(node* fnName, node* argList) {
     temp->gstEntry = globalLookup(gstRoot, lstRoot, fnName->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
+        temp->cType = temp->gstEntry->cType;
     }
     temp->left = fnName;
     temp->right = argList;
@@ -351,6 +362,7 @@ node* makeArgNode(node* expr) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_ARG;
     temp->type = expr->type;
+    temp->cType = expr->cType;
     temp->left = expr;
     temp->right = NULL;
     return temp;
@@ -359,6 +371,7 @@ node* makeArgNode(node* expr) {
 node* makeTypeDefNode(node* typeName, node* fieldList) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_TYPEDEF;
+    temp->varname = strdup(typeName->varname);
     temp->left = typeName;
     temp->right = fieldList;
     installType(temp);
@@ -401,12 +414,11 @@ node* makeFieldNode(node* var, node* field) {
     return temp;
 }
 
-node* makeFieldFnNode(node* type, node* name, node* args) {
+node* makeFieldFnNode(node* var, node* field, node* args) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_FIELDFN;
-    temp->varname = strdup(name->varname);
-    temp->left = makeConnectorNode(name, type);
-    temp->right = args;
+    temp->left = var;
+    temp->right = makeConnectorNode(field, args);
     return temp;
 }
 

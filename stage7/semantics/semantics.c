@@ -3,7 +3,7 @@
 #include <string.h>
 #include "../tree/tree.h"
 #include "../symbol_table/gst.h"
-#include "../codegen/utils.h"
+#include "../utils/utils.h"
 #include "../type_table/tt.h"
 #include "../symbol_table/lst.h"
 #include "../class_table/ct.h"
@@ -21,18 +21,12 @@ void enforcePrivateAttributes(node* root) {
     
     if(root->nodetype == NODE_FIELD) {
         enforcePrivateAttributes(root->left);
-        typeHandle* type = getType(root);
+        typeHandle* type = getType(root->left);
         if(type->cType && type->cType != currClass) {
             printf("\n%p %p\n", type->cType, currClass);
             printf("Semantics Error: Attempting to access private field '%s' of class '%s' from outside the class\n", root->right->varname, type->cType->name);
             exit(1);
         }
-    }
-    
-    typeHandle *type = getType(root);
-    if(type->cType && type->cType != currClass) {
-        printf("Semantics Error: Attempting to access private method '%s' of class '%s' from outside the class\n", root->varname, type->cType->name);
-        exit(1);
     }
 }
 
@@ -101,7 +95,7 @@ int getDerefLevel(node* root) {
         return getDerefLevel(root->right) + 1;
     }
     if(root->nodetype == NODE_ID || root->nodetype == NODE_ARRAY) {
-        gst*  entry = globalLookup(gstRoot, lstRoot, root->varname);
+        gst*  entry = globalLookup(root->varname);
         return entry ? entry->ptr_level : 0;
     }
     int left = getDerefLevel(root->left);
@@ -136,6 +130,14 @@ void semantics(node* root) {
             semantics(left);
             semantics(right);
 
+            if(root->right->nodetype == NODE_NEW) {                
+                typeHandle *leftType = getType(root->left);
+                if(leftType->cType != root->right->cType) {
+                    printf("Semantics Error: Type mismatch in assignment instanciation of object '%s' with class '%s'\n", root->left->varname, root->right->cType->name);
+                    exit(1);
+                }
+            }
+
             if(left->nodetype == NODE_ID && strcmp(left->varname, "self") == 0) {
                 printf("Semantics Error: Cannot assign to 'self'\n");
                 exit(1);
@@ -157,7 +159,7 @@ void semantics(node* root) {
             if(left->nodetype == NODE_ID) {
 
                 // ID nodes that are pointers
-                gst* entry = globalLookup(gstRoot, lstRoot, left->varname);
+                gst* entry = globalLookup(left->varname);
                 if(entry && entry->ptr_level > 0) {
                     if(right->nodetype == NODE_NULL) {
                         // Allowed
@@ -181,7 +183,7 @@ void semantics(node* root) {
         }
 
         case NODE_ID: {
-            gst* entry = globalLookup(gstRoot, lstRoot, root->varname);
+            gst* entry = globalLookup(root->varname);
             if(entry == NULL) {
                 printf("Semantics Error: Undeclared variable '%s'\n", root->varname);
                 exit(1);
@@ -197,7 +199,7 @@ void semantics(node* root) {
 
         case NODE_ADDR_OF: {
             if(!root->gstEntry) {
-                root->gstEntry = globalLookup(gstRoot, lstRoot, root->varname);
+                root->gstEntry = globalLookup(root->varname);
                 if(root->gstEntry == NULL) {
                     printf("Semantics Error: Undeclared variable '%s'\n", root->varname);
                     exit(1);
@@ -238,7 +240,7 @@ void semantics(node* root) {
         }
 
         case NODE_PTR: {
-            gst* entry = globalLookup(gstRoot, lstRoot, root->varname);
+            gst* entry = globalLookup(root->varname);
             if(!entry) {
                 printf("Semantics Error: Undeclared pointer variable '%s'\n", root->varname);
                 exit(1);
@@ -246,7 +248,7 @@ void semantics(node* root) {
             if(root->type == NULL) {
                 root->type = entry->type;
             }
-            if(globalLookup(gstRoot, lstRoot, root->right->varname) == NULL) {
+            if(globalLookup(root->right->varname) == NULL) {
                 printf("Semantics Error: Undeclared pointer variable '%s'\n", root->right->varname);
                 exit(1);
             }
@@ -436,19 +438,18 @@ void semantics(node* root) {
             // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
             params = gstEntry->paramList; // reset params pointer to head of list
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                lstInstall(params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
-            bindParams(lstRoot); // assign bindings to parameters
+            bindParams(); // assign bindings to parameters
 
-            buildLST(root->right->left, &lstRoot, gstEntry->paramList);
+            buildLST(root->right->left, gstEntry->paramList);
 
             // printGST(lstRoot);
 
             semantics(root->right->right); // function body
 
-            freeLst(lstRoot);
-            lstRoot = NULL;
+            freeLst();
             return;
         }
 
@@ -531,11 +532,10 @@ void semantics(node* root) {
         }
 
         case NODE_MAIN: {
-            buildLST(root->left, &lstRoot, NULL);
+            buildLST(root->left, NULL);
             // printGST(lstRoot);
             semantics(root->right);
-            freeLst(lstRoot);
-            lstRoot = NULL;
+            freeLst();
             return;
         }
 
@@ -599,21 +599,29 @@ void semantics(node* root) {
 
             // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
             params = methodEntry->params; // reset params pointer to head of list
-            lstRoot = lstInstall(lstRoot, "self", NULL, ctLookup(currClass->name), 0); // install self parameter
+            lstInstall("self", NULL, ctLookup(currClass->name), 0); // install self parameter
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                lstInstall(params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
-            bindParams(lstRoot); // assign bindings to parameters
+            bindParams(); // assign bindings to parameters
             
-            buildLST(root->right->left, &lstRoot, methodEntry->params);
+            buildLST(root->right->left, methodEntry->params);
 
             printGST(lstRoot);
 
             semantics(root->right->right); // method body
 
-            freeLst(lstRoot);
-            lstRoot = NULL;
+            freeLst();
+            return;
+        }
+
+        case NODE_NEW: {
+            // cType already attched in tree.c
+            if(root->cType == NULL) {
+                printf("Semantics Error: Attempting to instantiate unknown class '%s'\n", root->varname);
+                exit(1);
+            }
             return;
         }
     }

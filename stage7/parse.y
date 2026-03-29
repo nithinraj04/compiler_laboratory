@@ -26,7 +26,7 @@
 
 %token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK 
 %token <p> CONTINUE BRKP DECL ENDDECL INT STR STRVAL NULLVAL RETURN MAIN TYPE ENDTYPE INITIALIZE 
-%token <p> FREE ALLOC CLASS ENDCLASS
+%token <p> FREE ALLOC CLASS ENDCLASS NEW
 
 %type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt 
 %type <p> gDeclBlock gDeclList gDecl gVarList identifier gVar index ptr fDefBlock mainBlock
@@ -251,12 +251,16 @@ expr : expr '+' expr         { $$ = makeOpNode("+", $1, $3); }
      | expr NE expr          { $$ = makeOpNode("!=", $1, $3); }
      | '(' expr ')'          { $$ = $2; }
      | ALLOC '(' ')'         { $$ = makeAllocNode(); }
+     | INITIALIZE '(' ')'    { $$ = makeInitializeNode(); }
+     | FREE '(' ID ')'       { $$ = makeFreeNode($3); }
+     | FREE '(' field ')'    { $$ = makeFreeNode($3); }
      | fCallStmt             { $$ = $1; }
      | NUM                   { $$ = $1; }
      | STRVAL                { $$ = $1; }
      | identifier            { $$ = $1; }
      | NULLVAL               { $$ = makeNullNode(); }
      | fieldFn               { $$ = $1; }
+     | NEW '(' ID ')'        { $$ = makeNewNode($3); }
      ;
 
 field : identifier '.' ID     { $$ = makeFieldNode($1, $3); }

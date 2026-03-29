@@ -6,10 +6,10 @@ typedef struct classTable classTable; // Forward declaration of classTable from 
 typedef struct gst gst; // Forward declaration of gst from gst.h
 struct paramStruct;
 
-gst* lstLookup(gst* head, char* name);
-gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int ptr_level);
-gst* globalLookup(gst* gstHead, gst* lstHead, char* name);
-void freeLst(gst* head);
-int bindParams(gst* head);
+gst* lstLookup(char* name);
+gst* lstInstall(char* name, typeTable* type, classTable* cType, int ptr_level);
+gst* globalLookup(char* name);
+void freeLst();
+void bindParams();
 
 #endif

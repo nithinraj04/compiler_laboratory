@@ -68,8 +68,8 @@ int tlwrap() {
 
     fclose(tempfile);
 
-    // remove("output.xsm");
-    // rename("output_temp.xsm", "output.xsm");
+    remove("output.xsm");
+    rename("output_temp.xsm", "output.xsm");
 
     return 1;
 }

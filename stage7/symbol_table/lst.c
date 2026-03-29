@@ -21,7 +21,7 @@ gst* createLstNode(char* name, typeTable* type, classTable* cType) {
     return newNode;
 }
 
-gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int ptr_level) {
+gst* lstInstall(char* name, typeTable* type, classTable* cType, int ptr_level) {
     if(ttLookup(name) != NULL) {
         printf("Error: Cannot declare a variable with name '%s' as there exist a type with same name\n", name);
         exit(1);
@@ -30,11 +30,12 @@ gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int p
     gst* newNode = createLstNode(name, type, cType);
     newNode->ptr_level = ptr_level;
 
-    if (head == NULL) {
+    if (lstRoot == NULL) {
         newNode->relativeBinding = localBindingCounter++;
+        lstRoot = newNode;
         return newNode;
     }
-    gst* temp = head;
+    gst* temp = lstRoot;
     gst* prev = NULL;
     while (temp != NULL) {
         prev = temp;
@@ -49,15 +50,15 @@ gst* lstInstall(gst* head, char* name, typeTable* type, classTable* cType, int p
     }
     newNode->relativeBinding = localBindingCounter++;
     prev->next = newNode;
-    return head;
+    return newNode;
 }
 
-gst* lstLookup(gst* head, char* name) {
+gst* lstLookup(char* name) {
     if(name == NULL) {
         return NULL;
     }
 
-    gst* temp = head;
+    gst* temp = lstRoot;
     while (temp != NULL) {
         if (strcmp(temp->name, name) == 0) {
             return temp;
@@ -67,20 +68,20 @@ gst* lstLookup(gst* head, char* name) {
     return NULL;
 }
 
-gst* globalLookup(gst* gstHead, gst* lstHead, char* name) {
+gst* globalLookup(char* name) {
     if(name == NULL) {
         return NULL;
     }
 
-    gst* temp = lstLookup(lstHead, name);
+    gst* temp = lstLookup(name);
     if(temp) {
         return temp;
     }
     return gstLookup(name);
 }
 
-void freeLst(gst* head) {
-    gst* temp = head;
+void freeLst() {
+    gst* temp = lstRoot;
     while (temp != NULL) {
         gst* next = temp->next;
         free(temp->name);
@@ -88,12 +89,18 @@ void freeLst(gst* head) {
         temp = next;
     }
     localBindingCounter = 1; // Reset binding counter for next function
+    lstRoot = NULL;
 }
 
-int bindParams(gst* head) {
-    if(head == NULL) return -2;
+int bindParamsHelper(gst* lstRoot) {
+    if(lstRoot == NULL) return -2;
 
-    head->relativeBinding = bindParams(head->next) - 1;
+    lstRoot->relativeBinding = bindParamsHelper(lstRoot->next) - 1;
     localBindingCounter--;
-    return head->relativeBinding;
+    return lstRoot->relativeBinding;
+}
+
+void bindParams() {
+    gst* temp = lstRoot;
+    bindParamsHelper(temp);
 }

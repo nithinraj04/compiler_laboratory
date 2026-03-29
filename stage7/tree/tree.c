@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tree.h"
-#include "treeUtils.h"
-#include "../codegen/utils.h"
+#include "../utils/treeUtils.h"
+#include "../utils/utils.h"
 #include "../type_table/tt.h"
 #include "../class_table/ct.h"
 
@@ -47,7 +47,7 @@ node* makeLeafIdNode(char* varname) {
     node* temp = createTreeNode();
     temp->varname = strdup(varname);
     temp->nodetype = NODE_ID;
-    temp->gstEntry = globalLookup(gstRoot, lstRoot, varname);
+    temp->gstEntry = globalLookup(varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
         temp->cType = temp->gstEntry->cType;
@@ -62,7 +62,7 @@ node* makeArrayNode(node* varname, node* sizeNode) {
     temp->varname = strdup(varname->varname);
     temp->nodetype = NODE_ARRAY;
     // GST entry would have been created when processing DECL node
-    temp->gstEntry = globalLookup(gstRoot, lstRoot, varname->varname);
+    temp->gstEntry = globalLookup(varname->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
         temp->cType = temp->gstEntry->cType;
@@ -332,7 +332,7 @@ node* makeFnCallNode(node* fnName, node* argList) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_FNCALL;
     temp->varname = strdup(fnName->varname);
-    temp->gstEntry = globalLookup(gstRoot, lstRoot, fnName->varname);
+    temp->gstEntry = globalLookup(fnName->varname);
     if(temp->gstEntry) {
         temp->type = temp->gstEntry->type;
         temp->cType = temp->gstEntry->cType;
@@ -389,6 +389,7 @@ node* makeFieldDeclNode(node* typeName, node* fieldName) {
 node* makeInitializeNode() {
     node* temp = createTreeNode();
     temp->nodetype = NODE_INITIALIZE;
+    temp->type = ttLookup("int");
     return temp;
 }
 
@@ -396,12 +397,14 @@ node* makeFreeNode(node* arg) {
     node* temp = createTreeNode();
     temp->nodetype = NODE_FREE;
     temp->left = arg;
+    temp->type = ttLookup("int");
     return temp;
 }
 
 node* makeAllocNode() {
     node* temp = createTreeNode();
     temp->nodetype = NODE_ALLOC;
+    temp->type = ttLookup("int");
     return temp;
 }
 
@@ -460,5 +463,14 @@ node* makeClassDefNode(node* name, node* fieldList, node* methodList, node* meth
     temp->left = makeConnectorNode(name, fieldList);
     temp->right = makeConnectorNode(methodList, methodDefList);
     installClass(temp);
+    return temp;
+}
+
+node* makeNewNode(node* className) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_NEW;
+    temp->varname = strdup(className->varname);
+    temp->cType = ctLookup(className->varname);
+    temp->left = className;
     return temp;
 }

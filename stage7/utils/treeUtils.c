@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "treeUtils.h"
-#include "tree.h"
+#include "../tree/tree.h"
 #include "../symbol_table/gst.h"
 #include "../type_table/tt.h"
 #include "../class_table/ct.h"
 #include "../symbol_table/lst.h"
-#include "../codegen/utils.h"
+#include "../utils/utils.h"
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
@@ -37,7 +37,7 @@ void assignType(node* root, typeTable* type, classTable* cType) {
         char* varname = root->varname;
 
         gstInstall(varname, type, cType, size, 0);
-        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
+        root->gstEntry = globalLookup(varname);
         root->type = type;
         return;
     }
@@ -47,7 +47,7 @@ void assignType(node* root, typeTable* type, classTable* cType) {
         char* varname = root->varname;
 
         gstInstall(varname, type, cType, size, 0);
-        root->gstEntry = globalLookup(gstRoot, lstRoot, varname);
+        root->gstEntry = globalLookup(varname);
         root->left->gstEntry = root->gstEntry; 
         root->type = type;
         return; // You don't want to assign type to the ID child.
@@ -128,25 +128,6 @@ void installClass(node* root) {
         appendClassMethodParams(root->right);
         return;
     }
-
-    // if(root->nodetype == NODE_CFNDEF) {  // Adding self as first param
-    //     classTable* lastClass = getLastClass();
-    //     node* typeNode = makeLeafIdNode(lastClass->name);
-    //     node* nameNode = makeLeafIdNode("self");
-    //     node* paramNode = makeParamNode(typeNode, nameNode);
-    //     paramNode->varname = strdup("self");
-
-    //     if(root->left == NULL) {
-    //         root->left = paramNode;
-    //         return;
-    //     }
-    //     node* paramList = root->left;
-    //     while(paramList->left != NULL) {
-    //         paramList = paramList->left;
-    //     }
-    //     paramList->left = paramNode;
-    //     return;
-    // }
 
     installClass(root->left);
     installClass(root->right);

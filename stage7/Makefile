@@ -2,8 +2,8 @@ DIRS = codegen tree translate
 
 all: parser
 
-parser: lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o lst.o semantics.o tt.o ct.o treeUtils.o
-	gcc -g -o parser lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o translate_helpers.o gst.o lst.o semantics.o tt.o ct.o treeUtils.o
+parser: lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o codegenUtils.o translate_helpers.o gst.o lst.o semantics.o tt.o ct.o treeUtils.o
+	gcc -g -o parser lex.yy.o lex.tl.o parse.tab.o tree.o codegen.o libfuncs.o utils.o codegenUtils.o translate_helpers.o gst.o lst.o semantics.o tt.o ct.o treeUtils.o
 	make clean
 
 semantics.o: semantics/semantics.c
@@ -27,8 +27,11 @@ codegen.o: codegen/codegen.c
 libfuncs.o: codegen/libfuncs.c
 	gcc -g -c codegen/libfuncs.c
 
-utils.o: codegen/utils.c
-	gcc -g -c codegen/utils.c
+utils.o: utils/utils.c
+	gcc -g -c utils/utils.c
+
+codegenUtils.o: utils/codegenUtils.c
+	gcc -g -c utils/codegenUtils.c
 
 translate_helpers.o: translate/translate_helpers.c
 	gcc -g -c translate/translate_helpers.c
@@ -54,8 +57,8 @@ parse.tab.o: parse.tab.c
 tree.o: tree/tree.c
 	gcc -g -c tree/tree.c
 
-treeUtils.o: tree/treeUtils.c
-	gcc -g -c tree/treeUtils.c
+treeUtils.o: utils/treeUtils.c
+	gcc -g -c utils/treeUtils.c
 
 clean:
 	rm *.o

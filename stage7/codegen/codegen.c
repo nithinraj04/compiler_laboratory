@@ -2,17 +2,18 @@
 #include "../symbol_table/gst.h"
 #include "../type_table/tt.h"
 #include "../class_table/ct.h"
-#include "utils.h"
 #include "libfuncs.h"
+#include "../utils/utils.h"
+#include "../utils/codegenUtils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int regCount = 0;
-int label = 0;
-int fnlabel = 0;
+extern int regCount;
+extern int label;
+extern int fnlabel;
 
-labelStack* labelStackTop = NULL;
+extern labelStack* labelStackTop;
 extern gst* gstRoot;
 extern gst* lstRoot;
 extern classTable* currClass;
@@ -23,7 +24,7 @@ int getAddr(node* varNode, FILE* targetFile);
 int codeGen(node* root, FILE* targetFile);
 
 int getAddr(node* varNode, FILE* targetFile) {
-    gst* entry = globalLookup(gstRoot, lstRoot, varNode->varname);
+    gst* entry = globalLookup(varNode->varname);
     if(entry == NULL) {
         printf("Codegen Error: Undeclared variable '%s'\n", varNode->varname);
         exit(1);
@@ -162,8 +163,12 @@ int codeGen(node* root, FILE* targetFile) {
             return -1;
         }
         case NODE_CONNECTOR: {
-            codeGen(root->left, targetFile);
-            codeGen(root->right, targetFile);
+            int left = codeGen(root->left, targetFile);
+            int right = codeGen(root->right, targetFile);
+
+            if(left != -1) freeReg();
+            if(right != -1) freeReg();
+
             return -1;
         }
         case NODE_IFELSE: {
@@ -191,7 +196,7 @@ int codeGen(node* root, FILE* targetFile) {
         case NODE_WHILE: {
             int condLabel = getLabel();
             int endLabel  = getLabel();
-            labelStackTop = pushLabelStack(labelStackTop, condLabel, endLabel);
+            pushLabelStack(condLabel, endLabel);
 
             fprintf(targetFile, "L%d:\n", condLabel);
             int condReg = codeGen(root->left, targetFile);
@@ -201,7 +206,7 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "L%d:\n", endLabel);
             freeReg();
 
-            labelStackTop = popLabelStack(labelStackTop);
+            labelStackTop = popLabelStack();
             return -1;
         }
         case NODE_BREAK: {
@@ -224,7 +229,7 @@ int codeGen(node* root, FILE* targetFile) {
             int stmtLabel = getLabel();
             int condLabel = getLabel();
             int endLabel  = getLabel();
-            labelStackTop = pushLabelStack(labelStackTop, condLabel, endLabel);
+            pushLabelStack(condLabel, endLabel);
 
             fprintf(targetFile, "L%d:\n", stmtLabel);
             codeGen(root->right, targetFile);
@@ -233,7 +238,7 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "JNZ R%d, L%d\n", condReg, stmtLabel);
             fprintf(targetFile, "L%d:\n", endLabel);
 
-            labelStackTop = popLabelStack(labelStackTop);
+            labelStackTop = popLabelStack();
             freeReg();
             return -1;
         }
@@ -267,11 +272,11 @@ int codeGen(node* root, FILE* targetFile) {
 
             struct paramStruct* params = root->gstEntry->paramList;
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                lstInstall(params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
-            bindParams(lstRoot); // assign bindings to parameters
-            buildLST(root->right->left, &lstRoot, root->gstEntry->paramList);
+            bindParams(); // assign bindings to parameters
+            buildLST(root->right->left, root->gstEntry->paramList);
 
             gst* localHead = lstRoot;
             gst* localCursor = localHead;
@@ -293,8 +298,7 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "POP BP\n"); // Restore caller's BP
             fprintf(targetFile, "RET\n");
 
-                freeLst(localHead);
-                lstRoot = NULL;
+            freeLst();
             return -1;
         }
         case NODE_LDECL: {
@@ -313,7 +317,7 @@ int codeGen(node* root, FILE* targetFile) {
         case NODE_MAIN: {
             fprintf(targetFile, "M0:\n");
             fprintf(targetFile, "MOV BP, SP\n");
-            buildLST(root->left, &lstRoot, NULL);
+            buildLST(root->left, NULL);
 
             //Reserve space for local vars
             gst* localCursor = lstRoot;
@@ -326,7 +330,7 @@ int codeGen(node* root, FILE* targetFile) {
 
             codeGen(root->right, targetFile);
             fprintf(targetFile, "INT 10\n");
-            freeLst(lstRoot);
+            freeLst();
             return -1;
         }
         case NODE_FNCALL: {
@@ -382,18 +386,20 @@ int codeGen(node* root, FILE* targetFile) {
             return reg;
         }
         case NODE_INITIALIZE: {
-            heapset(targetFile);
-            return -1;
+            int reg = heapset(targetFile);
+            return reg;
         }
+        case NODE_NEW:
         case NODE_ALLOC: {
             int addrReg = alloc(targetFile);
             return addrReg;
         }
         case NODE_FREE: {
             int reg = codeGen(root->left, targetFile);
-            free_(reg, targetFile);
-            freeReg();
-            return -1;
+            int ret = free_(reg, targetFile);
+            fprintf(targetFile, "MOV R%d, R%d\n", reg, ret); // so that we can free a register
+            freeReg();  // this frees ret, not reg
+            return reg;
         }
         case NODE_NULL: {
             int reg = getReg();
@@ -420,14 +426,14 @@ int codeGen(node* root, FILE* targetFile) {
 
             // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
             params = methodEntry->params; // reset params pointer to head of list
-            lstRoot = lstInstall(lstRoot, "self", NULL, ctLookup(currClass->name), 0); // install self parameter
+            lstInstall("self", NULL, ctLookup(currClass->name), 0); // install self parameter
             while(params != NULL) {
-                lstRoot = lstInstall(lstRoot, params->name, params->type, params->cType, params->ptr_level);
+                lstInstall(params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
             }
-            bindParams(lstRoot); // assign bindings to parameters
+            bindParams(); // assign bindings to parameters
             
-            buildLST(root->right->left, &lstRoot, methodEntry->params);
+            buildLST(root->right->left, methodEntry->params);
 
             // printGST(lstRoot);
 
@@ -451,8 +457,7 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "POP BP\n"); // Restore caller's BP
             fprintf(targetFile, "RET\n");
 
-            freeLst(localHead);
-            lstRoot = NULL;
+            freeLst();
             return -1;
         }
         case NODE_FIELDFN: {
@@ -482,7 +487,7 @@ int codeGen(node* root, FILE* targetFile) {
             fprintf(targetFile, "POP R%d\n", retReg); // Get return value
 
             // Clean up arguments from stack
-            int argCount = 0;
+            int argCount = 1;  // start from 1 cuz self is not in param list
             struct paramStruct* paramList = methodEntry->params;
             while(paramList) {
                 argCount++;

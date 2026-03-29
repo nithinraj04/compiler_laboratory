@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "libfuncs.h"
-#include "utils.h"
+#include "../utils/codegenUtils.h"
 
 void write(int reg, FILE* targetFile){
     int tmp = getReg();
@@ -43,7 +43,7 @@ void read(int addrReg, FILE* targetFile){
     freeReg();
 }
 
-void heapset(FILE* targetFile) {
+int heapset(FILE* targetFile) {
     int tmp = getReg();
     fprintf(targetFile, "MOV R%d, %s\n", tmp, "\"Heapset\"");
     fprintf(targetFile, "PUSH R%d\n", tmp); // fn name
@@ -53,13 +53,15 @@ void heapset(FILE* targetFile) {
     fprintf(targetFile, "PUSH R%d\n", tmp); // ret val
     freeReg();
     fprintf(targetFile, "CALL 0\n");
+    int retReg = getReg();
     tmp = getReg();
-    fprintf(targetFile, "POP R%d\n", tmp);
+    fprintf(targetFile, "POP R%d\n", getReg());
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     freeReg();
+    return retReg;
 }
 
 int alloc(FILE* targetFile) {
@@ -83,7 +85,7 @@ int alloc(FILE* targetFile) {
     return retReg;
 }
 
-void free_(int reg, FILE* targetFile) {
+int free_(int reg, FILE* targetFile) {
     int tmp = getReg();
     fprintf(targetFile, "MOV R%d, %s\n", tmp, "\"Free\"");
     fprintf(targetFile, "PUSH R%d\n", tmp); // fn name
@@ -93,11 +95,13 @@ void free_(int reg, FILE* targetFile) {
     fprintf(targetFile, "PUSH R%d\n", tmp); // ret val
     freeReg();
     fprintf(targetFile, "CALL 0\n");
+    int retReg = getReg();
     tmp = getReg();
-    fprintf(targetFile, "POP R%d\n", tmp);
+    fprintf(targetFile, "POP R%d\n", retReg);
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     fprintf(targetFile, "POP R%d\n", tmp);
     freeReg();
+    return retReg;
 }

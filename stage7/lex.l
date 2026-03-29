@@ -43,6 +43,7 @@ digit [0-9]
 "free"       { return FREE; }
 "class"      { return CLASS; }
 "endclass"   { return ENDCLASS; }
+"new"        { return NEW; }
 [a-zA-Z][a-zA-Z0-9_]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "."      { return '.'; }
 "+"      { return '+'; }

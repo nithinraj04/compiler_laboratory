@@ -38,6 +38,12 @@
     }
 }
 
+\"[^\"]*\" {
+    if(passcount == 2) {
+        fprintf(tempfile, "%s", tltext);
+    }
+}
+
 "\n" { 
     if(passcount == 1) {
         lineNumber++;

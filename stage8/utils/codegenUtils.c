@@ -8,6 +8,8 @@
 #include "../type_table/tt.h"
 #include "../class_table/ct.h"
 
+extern classTable* ctRoot;
+
 typedef struct regStack {
     int reg;
     struct regStack* next;
@@ -21,7 +23,8 @@ labelStack* labelStackTop = NULL;
 
 extern struct gst* gstRoot;
 extern struct gst* lstRoot;
-extern int codeGen(node* root, FILE* targetFile);
+
+pair* codeGen(node* root, FILE* targetFile);
 
 regStack* regStackTop = NULL;
 
@@ -83,9 +86,41 @@ int getFnLabel() {
     return fnlabel++;
 }
 
-int binaryOpHandler(node* root, FILE* targetFile) {
-    int leftReg = codeGen(root->left, targetFile);
-    int rightReg = codeGen(root->right, targetFile);
+void initializeVft(FILE* targetFile) {
+    classTable* curr = ctRoot;
+    while(curr != NULL) {
+        curr->vft = reserveSpace(8);
+
+        cMethodList* method = curr->memberMethods;
+        int reg = getReg();
+        if(method != NULL) {
+            fprintf(targetFile, "MOV R%d, %d\n", reg, curr->vft);
+        }
+        while(method != NULL) {
+            fprintf(targetFile, "MOV [R%d], F%d\n", reg, method->funcLabel);
+            if(method->next != NULL) {
+                fprintf(targetFile, "INR R%d\n", reg);
+            }
+            method = method->next;
+        }
+        freeReg();
+
+        curr = curr->next;
+    }
+}
+
+pair *createPair(int r1, int r2) {
+    pair* p = (pair*) malloc(sizeof(pair));
+    p->r1 = r1;
+    p->r2 = r2;
+    return p;
+}
+
+pair* binaryOpHandler(node* root, FILE* targetFile) {
+    pair* leftRet = codeGen(root->left, targetFile);
+    pair* rightRet = codeGen(root->right, targetFile);
+    int leftReg = leftRet->r1;
+    int rightReg = rightRet->r1;
 
     if(root->nodetype == NODE_EQ || root->nodetype == NODE_NEQ) {
         if(root->nodetype == NODE_EQ){
@@ -95,7 +130,7 @@ int binaryOpHandler(node* root, FILE* targetFile) {
             fprintf(targetFile, "NE R%d, R%d\n", leftReg, rightReg);
         }
         freeReg();
-        return leftReg;
+        return createPair(leftReg, -1);
     }
 
     switch(root->nodetype) {
@@ -130,7 +165,9 @@ int binaryOpHandler(node* root, FILE* targetFile) {
             break;
     }
     freeReg();
-    return leftReg;
+    free(leftRet);
+    free(rightRet);
+    return createPair(leftReg, -1);
 }
 
 labelStack* createLabelStackNode(int cond, int end) {

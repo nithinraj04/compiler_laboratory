@@ -5,6 +5,8 @@
     #include <stdlib.h>
     #include "translate/translate.h"
     #include "type_table/tt.h"
+    #include "class_table/ct.h"
+    #include "utils/codegenUtils.h"
     int yylex();  
     void yyerror(const char *s);
     void postorder(node* root);
@@ -26,7 +28,7 @@
 
 %token <p> START END READ WRITE NUM ID GE LE EQ NE IF THEN ELSE ENDIF WHILE DO ENDWHILE BREAK 
 %token <p> CONTINUE BRKP DECL ENDDECL INT STR STRVAL NULLVAL RETURN MAIN TYPE ENDTYPE INITIALIZE 
-%token <p> FREE ALLOC CLASS ENDCLASS NEW
+%token <p> FREE ALLOC CLASS ENDCLASS NEW EXTENDS
 
 %type <p> expr stmt stmtList inputStmt outputStmt assignStmt start ifStmt whileStmt doWhileStmt 
 %type <p> gDeclBlock gDeclList gDecl gVarList identifier gVar index ptr fDefBlock mainBlock
@@ -97,8 +99,14 @@ classDefList : classDefList classDef   { $$ = makeConnectorNode($1, $2); }
              | classDef               { $$ = $1; }
              ;
 
-classDef : cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, $5, $7); }
-classDef : cName '{' DECL cFieldList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, NULL, $6); }
+classDef : cName EXTENDS cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { $$ = makeInheritedClassDefNode($3, $1, $6, $7, $9); }
+         | cName EXTENDS cName '{' DECL cFieldList ENDDECL cMethodDefList '}' { $$ = makeInheritedClassDefNode($3, $1, $6, NULL, $8); }
+         | cName EXTENDS cName '{' DECL cMethodList ENDDECL cMethodDefList '}' { $$ = makeInheritedClassDefNode($3, $1, NULL, $6, $8); }
+         | cName EXTENDS cName '{' DECL ENDDECL cMethodDefList '}' { $$ = makeInheritedClassDefNode($3, $1, NULL, NULL, $7); }
+         | cName '{' DECL cFieldList cMethodList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, $5, $7); }
+         | cName '{' DECL cFieldList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, $4, NULL, $6); }
+         | cName '{' DECL cMethodList ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, NULL, $4, $6); }
+         | cName '{' DECL ENDDECL cMethodDefList '}' { $$ = makeClassDefNode($1, NULL, NULL, $5); }
          ;
 
 cName : ID    { $$ = $1; }
@@ -307,9 +315,11 @@ int main() {
 
     ttInitialize();
     yyparse();
+    
     ttPrint();
-    printAST(root, "", 1);
+    // printAST(root, "", 1);
     semantics(root);
+
 
     FILE* targetFile = fopen("output.xsm", "w");
     if (targetFile == NULL) {
@@ -319,13 +329,16 @@ int main() {
 
     fprintf(targetFile, "0\n2056\n0\n0\n0\n0\n0\n0\n");
     fprintf(targetFile, "BRKP\n");
+    initializeVft(targetFile);
     fprintf(targetFile, "MOV SP, %d\n", getSP());
     fprintf(targetFile, "PUSH BP\n");
+    fprintf(targetFile, "MOV BP, SP\n");
     fprintf(targetFile, "CALL M0\n");
     codeGen(root, targetFile);
 
     printAST(root, "", 1);
     printGST(gstRoot);
+    ctPrint();
 
     fclose(targetFile);
 

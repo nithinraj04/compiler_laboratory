@@ -136,3 +136,14 @@ void buildLST(node* root, struct paramStruct* paramList) {
     buildLST(root->left, paramList);
     buildLST(root->right, paramList);
 }
+
+int checkAncestor(classTable* child, classTable* ancestor) {
+    classTable* current = child;
+    while(current != NULL) {
+        if(current == ancestor) {
+            return 1;
+        }
+        current = current->parentClass;
+    }
+    return 0;
+}

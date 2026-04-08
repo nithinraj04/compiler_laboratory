@@ -18,5 +18,6 @@ int getDeclaredPtrLevel(node* root);
 struct typeHandle* getType(node* root);
 int checkTypeEquivalence(struct typeHandle *tHandle, typeTable *type, classTable *cType);
 void buildLST(node* root, struct paramStruct* paramList);
+int checkAncestor(classTable* child, classTable* ancestor);
 
 #endif

@@ -132,10 +132,11 @@ void semantics(node* root) {
 
             if(root->right->nodetype == NODE_NEW) {                
                 typeHandle *leftType = getType(root->left);
-                if(leftType->cType != root->right->cType) {
+                if(leftType->cType != root->right->cType && !checkAncestor(root->right->cType, leftType->cType)) {
                     printf("Semantics Error: Type mismatch in assignment instanciation of object '%s' with class '%s'\n", root->left->varname, root->right->cType->name);
                     exit(1);
                 }
+                return;
             }
 
             if(left->nodetype == NODE_ID && strcmp(left->varname, "self") == 0) {
@@ -600,6 +601,7 @@ void semantics(node* root) {
             // Build LST (Includes semantic checks for redeclaration of local variables and parameters)
             params = methodEntry->params; // reset params pointer to head of list
             lstInstall("self", NULL, ctLookup(currClass->name), 0); // install self parameter
+            lstInstall("__self_vft", NULL, NULL, 0); // install hidden parameter for vft pointer
             while(params != NULL) {
                 lstInstall(params->name, params->type, params->cType, params->ptr_level);
                 params = params->next;
@@ -622,6 +624,12 @@ void semantics(node* root) {
                 printf("Semantics Error: Attempting to instantiate unknown class '%s'\n", root->varname);
                 exit(1);
             }
+            return;
+        }
+
+        case NODE_EXTENDS: {
+            // All inheritance semantics are handled during AST generation
+            semantics(root->right);
             return;
         }
     }

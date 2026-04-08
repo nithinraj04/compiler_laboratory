@@ -44,6 +44,7 @@ digit [0-9]
 "class"      { return CLASS; }
 "endclass"   { return ENDCLASS; }
 "new"        { return NEW; }
+"extends"    { return EXTENDS; }
 [a-zA-Z][a-zA-Z0-9_]*    { yylval.p = makeLeafIdNode(yytext); return ID; }
 "."      { return '.'; }
 "+"      { return '+'; }

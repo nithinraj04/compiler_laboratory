@@ -11,6 +11,7 @@ struct classTable {
     int classIndex;
     int fieldCount;
     int methodCount;
+    int vft;
     struct classTable *next;
 };
 
@@ -40,7 +41,9 @@ classTable *ctLookup(char *name);
 void ctInstall(char *name);
 void ctAddField(char* name, char* classOrTypeName); // Installs the field in last entry of CT
 void ctAddMethod(char* name, char* returnType);     // Installs the method in last entry of CT
-void ctAddMethodParam(char* name, char* typeName);  // Adds param to the last added method
+void ctAddMethodParam(char* methodName, char* paramName, char* typeName);  // Adds param to the mentioned method
+void attachParentClass(char* parentClassName);
+void copyClass(char* parentClassName);
 cFieldList* ctFieldLookup(char* className, char* fieldName);
 cMethodList* ctMethodLookup(char* className, char* methodName);
 classTable* getLastClass();

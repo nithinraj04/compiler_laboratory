@@ -462,6 +462,21 @@ node* makeClassDefNode(node* name, node* fieldList, node* methodList, node* meth
     temp->varname = strdup(name->varname);
     temp->left = makeConnectorNode(name, fieldList);
     temp->right = makeConnectorNode(methodList, methodDefList);
+    ctInstall(temp->varname);
+    installClass(temp);
+    return temp;
+}
+
+node* makeInheritedClassDefNode(node* parentClassName, node* name, node* fieldList, node* methodList, node* methodDefList) {
+    node* temp = createTreeNode();
+    temp->nodetype = NODE_EXTENDS;
+    temp->left = parentClassName;
+    temp->right = makeConnectorNode(NULL, NULL);
+    temp->right->nodetype = NODE_CDEF;
+    temp->right->varname = strdup(name->varname);
+    temp->right->left = makeConnectorNode(name, fieldList);
+    temp->right->right = makeConnectorNode(methodList, methodDefList);
+    ctInstall(name->varname);
     installClass(temp);
     return temp;
 }

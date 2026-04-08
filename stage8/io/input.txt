@@ -1,131 +1,95 @@
-type
-    bst{
-        int a;
-        bst left;
-        bst right;
-    }
-endtype
 class
-    bstclass{
-        decl
-            bst root;
-            int init();
-            bst getroot();
-            int setroot(bst n1);
-            bst getnode(int key);
-            bst insert(bst h, int key);
-            int inOrder_fun(bst h);
-            int preOrder_fun(bst h);
-            int postOrder_fun(bst h);
-        enddecl
-        int init(){
-            begin
-                self.root=null;
-                return 1;
-            end
-        }
-        bst getroot(){
-            begin
-                return self.root;
-            end
-        }
-        int setroot(bst n1){
-            begin
-                self.root=n1;
-                return 1;
-            end
-        }
-        bst getnode(int key){
-            decl
-                bst temp;
-            enddecl
-            begin
-                temp=alloc();
-                temp.a=key;
-                temp.left=null;
-                temp.right=null;
-                return temp;
-            end
-        }
-        bst insert(bst h, int key){
-            begin
-                if (h == null) then
-                    h = self.getnode(key);
-                else
-                    if (key < h.a) then
-                        h.left = self.insert(h.left, key);
-                    else
-                        if (key > h.a) then
-                            h.right = self.insert(h.right, key);
-                        endif;
-                    endif;
-                endif;
-                return h;
-            end
-        }
-        int inOrder_fun(bst h){
-            decl
-                int in;
-            enddecl
-            begin
-                if(h!= null) then
-                    in=self.inOrder_fun(h.left);
-                    write(h.a);
-                    in=self.inOrder_fun(h.right);
-                endif;
-                return 1;
-            end
-        }
-        int preOrder_fun(bst h){
-            decl
-                int in;
-            enddecl
-            begin
-                if(h!= null) then
-                    write(h.a);
-                    in=self.preOrder_fun(h.left);
-                    in=self.preOrder_fun(h.right);
-                endif;
-                return 1;
-            end
-        }
-        int postOrder_fun(bst h){
-            decl
-                int in;
-            enddecl
-            begin
-                if(h!= null) then
-                    in=self.postOrder_fun(h.left);
-                    in=self.postOrder_fun(h.right);
-                    write(h.a);
-                endif;
-                return 1;
-            end
-        }
-    }
+A
+{
+decl
+int f0();
+int f1();
+enddecl
+int f0() {
+begin
+write("In class A f0");
+return 1;
+end
+}
+int f1() {
+begin
+write("In class A f1");
+return 1;
+end
+}
+}
+B extends A
+{
+decl
+int f0();
+int f2();
+enddecl
+int f0() {
+begin
+write("In class B f0");
+return 1;
+end
+}
+int f2() {
+begin
+write("In class B f2");
+return 1;
+end
+}
+}
+C extends B
+{
+decl
+int f0();
+int f2();
+int f4();
+enddecl
+int f0() {
+begin
+write("In class C f0");
+breakpoint;
+return 1;
+end
+}
+int f2() {
+begin
+write("In class C f2");
+return 1;
+end
+}
+int f4() {
+begin
+write("In class C f4");
+return 1;
+end
+}
+}
 endclass
 decl
-    bstclass obj;
+A obj ;
+A test_obj;
 enddecl
-int main(){
-    decl
-        bst Root;
-        int x,in,val;
-    enddecl
-    begin
-        x=initialize();
-        obj = new(bstclass);
-        x=obj.init();
-        read(val);
-        Root = obj.getroot();
-        while(val!=0) do
-            Root = obj.insert(Root,val);
-            read(val);
-        endwhile;
-        x = obj.setroot(Root);
-        in = obj.inOrder_fun(obj.getroot());
-        in = obj.preOrder_fun(obj.getroot());
-        in = obj.postOrder_fun(obj.getroot());
-        return 0;
-    end
+int main() {
+decl
+int temp,n;
+enddecl
+begin
+temp= initialize();
+read(n);
+if(n < 0)then
+breakpoint;
+obj = new(A);
+else
+if(n == 0)then
+obj = new(B);
+else
+if(n > 0)then
+obj = new(C);
+endif;
+endif;
+endif;
+test_obj = obj;
+write(test_obj.f0());
+return 1;
+end
 }

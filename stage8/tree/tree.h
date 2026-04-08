@@ -58,7 +58,8 @@ typedef enum {
     NODE_CMETHOD,
     NODE_CFIELD,
     NODE_CDEF,
-    NODE_NEW
+    NODE_NEW,
+    NODE_EXTENDS
 } nodeType;
 
 typedef enum varType varType; // Forward declaration of varType for gst.h
@@ -118,5 +119,6 @@ node* makeClassFnDefNode(node* fnDef);
 node* makeClassMethodNode(node* type, node* name, node* params);
 node* makeClassFieldNode(node* type, node* name);
 node* makeClassDefNode(node* name, node* fieldList, node* methodList, node* methodDefList);
+node* makeInheritedClassDefNode(node* parentClassName, node* name, node* fieldList, node* methodList, node* methodDefList);
 node* makeNewNode(node* className);
 #endif

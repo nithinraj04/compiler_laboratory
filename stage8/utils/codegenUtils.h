@@ -14,6 +14,11 @@ typedef struct labelStack {
     struct labelStack* prev;
 } labelStack;
 
+typedef struct pair {
+    int r1;
+    int r2;
+} pair;
+
 typedef struct typeHandle typeHandle;
 
 void pushLabelStack(int cond, int end);
@@ -26,5 +31,8 @@ int getLabel();
 int getFnLabel();
 void pushRegStack();
 void popRegStack();
+void initializeVft(FILE* targetFile);
+pair* createPair(int r1, int r2);
+pair* binaryOpHandler(node* root, FILE* targetFile);
 
 #endif

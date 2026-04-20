@@ -59,6 +59,10 @@ void matchParamsList(struct paramStruct** paramList, node* argList) {
             // skip it, it's an implicit parameter
             return;
         }
+        if((*paramList)->cType || getType(argList)->cType) {
+            printf("Semantics Error: Parameters cannot be of class type\n");
+            exit(1);
+        }
         if(!checkTypeEquivalence(getType(argList), (*paramList)->type, (*paramList)->cType)) {
             printf("Semantics Error: Fn def - Parameter type mismatch for parameter '%s'\n", (*paramList)->name);
             exit(1);
@@ -70,6 +74,10 @@ void matchParamsList(struct paramStruct** paramList, node* argList) {
     }
 
     if(argList->nodetype == NODE_ARG) {
+        if((*paramList)->cType || getType(argList->left)->cType) {
+            printf("Semantics Error: Parameters cannot be of class type\n");
+            exit(1);
+        }
         if(!checkTypeEquivalence(getType(argList->left), (*paramList)->type, (*paramList)->cType)) {
             printf("Semantics Error: Fn call - Parameter type mismatch for parameter '%s' '%s'\n", (*paramList)->name, (*paramList)->type->name);
             exit(1);
@@ -175,8 +183,12 @@ void semantics(node* root) {
                 printf("Semantics Error: Dereference level mismatch in assignment to variable '%s'\n", left->varname);
                 exit(1);
             }
-            if(getType(left)->type != getType(right)->type || getType(left)->cType != getType(right)->cType) {
+            if(getType(left)->type != getType(right)->type) {
                 printf("Semantics Error: type mismatch in assignment to variable '%s' ('%s' vs '%s')\n", left->varname, getType(left)->type ? getType(left)->type->name : "unknown", getType(right)->type ? getType(right)->type->name : "unknown");
+                exit(1);
+            }
+            if(getType(left)->cType && getType(right)->cType && !checkAncestor(getType(right)->cType, getType(left)->cType)) {
+                printf("Semantics Error: type mismatch in assignment to variable '%s' ('%s' vs '%s')\n", left->varname, getType(left)->cType ? getType(left)->cType->name : "unknown", getType(right)->cType ? getType(right)->cType->name : "unknown");
                 exit(1);
             }
 
@@ -222,6 +234,10 @@ void semantics(node* root) {
                 printf("Semantics Error: Variable '%s' is not declared as an array \n", root->varname);
                 exit(1);
             }
+            if(root->gstEntry->cType != NULL) {
+                printf("Semantics Error: Variable '%s' is a class type variable and cannot be indexed as an array\n", root->varname);
+                exit(1);
+            }
             if(getDerefLevel(root->right) != 0) {
                 printf("Semantics Error: Invalid dereference level in index expression for array '%s'\n", root->varname);
                 exit(1);
@@ -248,6 +264,10 @@ void semantics(node* root) {
             }
             if(root->type == NULL) {
                 root->type = entry->type;
+            }
+            if(entry->cType != NULL) {
+                printf("Pointer cannot point to class type variable '%s'\n", root->varname);
+                exit(1);
             }
             if(globalLookup(root->right->varname) == NULL) {
                 printf("Semantics Error: Undeclared pointer variable '%s'\n", root->right->varname);

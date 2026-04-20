@@ -111,6 +111,7 @@ fieldList* ttFieldLookup(char* type, char* fieldName) {
 
 void ttPrint() {
     typeTable *curr = ttHead;
+    printf("Type Table:\n");
     while(curr != NULL) {
         printf("Type: %s, Size: %d\n", curr->name, curr->size);
         fieldList *fieldCurr = curr->fields;
@@ -120,4 +121,5 @@ void ttPrint() {
         }
         curr = curr->next;
     }
+    printf("\n");
 }

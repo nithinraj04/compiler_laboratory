@@ -11,7 +11,7 @@ digit [0-9]
 %%
 
 {digit}+ { yylval.p = makeLeafNumNode(atoi(yytext)); return NUM; }
-\".*\"   {   
+\"([^\\\"\n]|\\.)*\"   {   
             yylval.p = makeLeafStrNode(strdup(yytext));
             return STRVAL; 
          }
